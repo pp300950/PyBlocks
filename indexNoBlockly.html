@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Block-Based Programming Interface</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        #toolbox {
+            display: flex;
+            flex-direction: column;
+            width: 20%;
+            height: 1000%;
+            /* Set height to 100% */
+            background-color: #f0f0f0;
+            border-right: 1px solid #ccc;
+            padding: 10px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            transition: width 0.3s;
+        }
+
+        #toolbox.shrink {
+            width: 100px;
+        }
+
+        #toggleButton {
+            position: absolute;
+            top: 10px;
+            left: 260px;
+            padding: 5px 10px;
+            background-color: #ccc;
+            border: none;
+            cursor: pointer;
+        }
+
+        #blocklyDiv {
+            flex-grow: 1;
+            width: calc(100% - 250px);
+            height: 100%;
+            background-color: #ffffff;
+            position: relative;
+        }
+
+        #blocklyDiv.shrink {
+            width: calc(100% - 50px);
+        }
+
+        #runButton {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #runButton:hover {
+            background-color: #45a049;
+        }
+
+        #output {
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-top: 1px solid #ccc;
+        }
+
+        .block {
+            margin: 5px 0;
+            padding: 10px;
+            background-color: #ddd;
+            border: 1px solid #bbb;
+            border-radius: 5px;
+            cursor: move;
+            position: relative;
+            /* Changed from absolute to relative */
+            z-index: 1;
+            /* Ensure blocks are on top of each other */
+            width: calc(100% - 20px);
+            /* Ensure blocks fit within the toolbox */
+        }
+
+        #trash {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background-color: #ff6666;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="toolbox">
+        <input type="text" id="searchBar" placeholder="Search blocks">
+        <div id="categoryList">
+            <div class="block" draggable="true" data-type="math_number">Number</div>
+            <div class="block" draggable="true" data-type="text">Text</div>
+            <!-- Add more block types as needed -->
+        </div>
+    </div>
+    <button id="toggleButton" onclick="toggleToolbox()">Toggle</button>
+    <div id="blocklyDiv"></div>
+    <div id="trash" onclick="clearTrash()">🗑️</div>
+    <button id="runButton" onclick="runCode()">Run</button>
+    <pre id="output"></pre>
+
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.18.1/full/pyodide.js"></script>
+    <script>
+        let pyodide;
+        const blocklyDiv = document.getElementById('blocklyDiv');
+        const trash = document.getElementById('trash');
+
+        async function loadPyodideAndSetup() {
+            pyodide = await loadPyodide({
+                indexURL: "https://cdn.jsdelivr.net/pyodide/v0.18.1/full/"
+            });
+
+            // Setup drag and drop
+            setupDragAndDrop();
+        }
+
+        function setupDragAndDrop() {
+            const blocks = document.querySelectorAll('#categoryList .block');
+            blocks.forEach(block => {
+                block.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', block.dataset.type);
+                });
+            });
+
+            blocklyDiv.addEventListener('dragover', (e) => {
+                e.preventDefault();
+            });
+
+            blocklyDiv.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const blockType = e.dataTransfer.getData('text/plain');
+                const rect = blocklyDiv.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                createBlock(blockType, x, y);
+            });
+
+            trash.addEventListener('dragover', (e) => {
+                e.preventDefault();
+            });
+
+            trash.addEventListener('drop', (e) => {
+                e.preventDefault();
+                clearTrash();
+            });
+        }
+
+        function createBlock(type, x, y) {
+            const block = document.createElement('div');
+            block.className = 'block';
+            block.textContent = type;
+            block.draggable = true;
+            block.style.position = 'absolute';
+            block.style.left = `${x}px`;
+            block.style.top = `${y}px`;
+
+            block.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', type);
+            });
+
+            block.addEventListener('mousedown', (e) => {
+                const rect = block.getBoundingClientRect();
+                const offsetX = e.clientX - rect.left;
+                const offsetY = e.clientY - rect.top;
+
+                const onMouseMove = (e) => {
+                    const blockRect = block.getBoundingClientRect();
+                    block.style.left = `${e.clientX - offsetX - blocklyDiv.getBoundingClientRect().left}px`;
+                    block.style.top = `${e.clientY - offsetY - blocklyDiv.getBoundingClientRect().top}px`;
+                };
+
+                const onMouseUp = () => {
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                };
+
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+
+            blocklyDiv.appendChild(block);
+        }
+
+        function createBlock(type, x, y) {
+            const block = document.createElement('div');
+            block.className = 'block';
+            block.textContent = type;
+            block.draggable = true;
+            block.style.position = 'absolute';
+            block.style.left = `${x}px`;
+            block.style.top = `${y}px`;
+
+            block.addEventListener('mousedown', (e) => {
+                const rect = block.getBoundingClientRect();
+                const offsetX = e.clientX - rect.left;
+                const offsetY = e.clientY - rect.top;
+
+                const onMouseMove = (e) => {
+                    const blockRect = block.getBoundingClientRect();
+                    block.style.left = `${e.clientX - offsetX - blocklyDiv.getBoundingClientRect().left}px`;
+                    block.style.top = `${e.clientY - offsetY - blocklyDiv.getBoundingClientRect().top}px`;
+                };
+
+                const onMouseUp = () => {
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                };
+
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+
+            blocklyDiv.appendChild(block);
+        }
+
+        async function runCode() {
+            const code = generateCode();
+            console.log("Generated code:\n", code); // Log generated code
+            try {
+                await pyodide.runPythonAsync(code);
+                document.getElementById('output').textContent = pyodide.globals.get('result') || 'No result';
+            } catch (err) {
+                document.getElementById('output').textContent = err;
+            }
+        }
+
+        function generateCode() {
+            let code = '';
+            document.querySelectorAll('#blocklyDiv .block').forEach(block => {
+                const type = block.textContent;
+                console.log(`Processing block: ${type}`); // Log block type
+                if (type === 'Number') {
+                    code += 'num = 42\n';
+                } else if (type === 'Text') {
+                    code += 'text = "Hello World"\n';
+                }
+            });
+            return code;
+        }
+
+
+        function toggleToolbox() {
+            const toolbox = document.getElementById('toolbox');
+            toolbox.classList.toggle('shrink');
+            blocklyDiv.classList.toggle('shrink');
+        }
+
+        function clearTrash() {
+            const blocks = document.querySelectorAll('#blocklyDiv .block');
+            blocks.forEach(block => {
+                if (isInTrash(block)) {
+                    block.remove();
+                }
+            });
+        }
+
+        function isInTrash(block) {
+            const blockRect = block.getBoundingClientRect();
+            const trashRect = trash.getBoundingClientRect();
+            return blockRect.left >= trashRect.left &&
+                blockRect.top >= trashRect.top &&
+                blockRect.right <= trashRect.right &&
+                blockRect.bottom <= trashRect.bottom;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPyodideAndSetup();
+        });
+
+    </script>
+</body>
+
+</html>
