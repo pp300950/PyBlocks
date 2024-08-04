@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.18.1/full/pyodide.js"></script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        #toolbox {
+            display: flex;
+            flex-direction: column;
+            width: 250px;
+            background-color: #f0f0f0;
+            border-right: 1px solid #ccc;
+            padding: 10px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            transition: width 0.3s;
+        }
+
+        #toolbox.shrink {
+            width: 50px;
+        }
+
+        #toggleButton {
+            position: absolute;
+            top: 10px;
+            left: 260px; /* Adjust to ensure it is visible when the toolbox is expanded */
+            padding: 5px 10px;
+            background-color: #ccc;
+            border: none;
+            cursor: pointer;
+        }
+
+        #toolbox input {
+            margin-bottom: 10px;
+            padding: 5px;
+        }
+
+        #blocklyDiv {
+            flex-grow: 1;
+            width: calc(100% - 250px);
+            height: 100%;
+            background-image: url('https://media.istockphoto.com/id/1427921411/th/%E0%B9%80%E0%B8%A7%E0%B8%84%E0%B9%80%E0%B8%95%E0%B8%AD%E0%B8%A3%E0%B9%8C/%E0%B8%95%E0%B8%B2%E0%B8%A3%E0%B8%B2%E0%B8%87.jpg?s=612x612&w=0&k=20&c=hUA369U2jmyAmM4FNbW7ERUfZ1gGqkPSa_dIjy2DjHM='); /* Use a grid-like pattern image URL here */
+            background-size: 500px 500px; /* Adjust size to control grid size */
+            background-color: #ffffff; /* Fallback color */
+        }
+
+        #blocklyDiv.shrink {
+            width: calc(100% - 50px);
+        }
+
+        #runButton {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #runButton:hover {
+            background-color: #45a049;
+        }
+
+        #trash {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            background-color: #ff6666;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: white;
+            cursor: pointer;
+        }
+
+        #output {
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-top: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <div style="display: flex; flex-direction: row; flex-grow: 1;">
+        <div id="toolbox">
+            <input type="text" id="searchBar" placeholder="Search blocks">
+            <div id="categoryList">
+                <!-- หมวดหมู่ของบล็อกต่างๆ จะถูกเพิ่มตรงนี้ -->
+            </div>
+        </div>
+        <button id="toggleButton" onclick="toggleToolbox()">Toggle</button>
+        <div id="blocklyDiv"></div>
+    </div>
+    <textarea id="code" rows="10" cols="50" style="display:none;"></textarea>
+    <button id="runButton" onclick="runCode()">Run</button>
+    <pre id="output"></pre>
+
+    <script>
+        // Load Pyodide
+        async function loadPyodide() {
+            window.pyodide = await loadPyodide();
+        }
+
+        // Initialize Blockly workspace
+        var workspace = Blockly.inject('blocklyDiv', {
+            toolbox: `
+                <xml id="toolbox-categories" style="display: none">
+                    <category name="Logic" colour="#5C81A6">
+                        <block type="controls_if"></block>
+                        <block type="logic_compare"></block>
+                        <block type="logic_operation"></block>
+                    </category>
+                    <category name="Loops" colour="#5CA65C">
+                        <block type="controls_repeat_ext"></block>
+                        <block type="controls_whileUntil"></block>
+                    </category>
+                    <category name="Math" colour="#5C68A6">
+                        <block type="math_number"></block>
+                        <block type="math_arithmetic"></block>
+                    </category>
+                    <category name="Text" colour="#5CA6A6">
+                        <block type="text"></block>
+                        <block type="text_print"></block>
+                    </category>
+                    <category name="Variables" custom="VARIABLE" colour="#A65C81"></category>
+                </xml>
+            `,
+            trashcan: true
+        });
+
+        // Define Python generator for custom blocks
+        Blockly.Python['variables_set'] = function(block) {
+            var varName = Blockly.Python.variableDB_.getName(block.getFieldValue('VAR'), Blockly.Variables.NAME_TYPE);
+            var value = Blockly.Python.valueToCode(block, 'VALUE', Blockly.Python.ORDER_ATOMIC) || '0';
+            return varName + ' = ' + value + '\n';
+        };
+
+        Blockly.Python['variables_get'] = function(block) {
+            var varName = Blockly.Python.variableDB_.getName(block.getFieldValue('VAR'), Blockly.Variables.NAME_TYPE);
+            return [varName, Blockly.Python.ORDER_ATOMIC];
+        };
+
+        Blockly.Python['math_arithmetic'] = function(block) {
+            var OPERATORS = {
+                'ADD': '+',
+                'MINUS': '-',
+                'MULTIPLY': '*',
+                'DIVIDE': '/'
+            };
+            var operator = OPERATORS[block.getFieldValue('OP')];
+            var argument0 = Blockly.Python.valueToCode(block, 'A', Blockly.Python.ORDER_ATOMIC);
+            var argument1 = Blockly.Python.valueToCode(block, 'B', Blockly.Python.ORDER_ATOMIC);
+            var code = argument0 + ' ' + operator + ' ' + argument1;
+            return [code, Blockly.Python.ORDER_NONE];
+        };
+
+        // Toggle the toolbox width
+        function toggleToolbox() {
+            var toolbox = document.getElementById('toolbox');
+            var blocklyDiv = document.getElementById('blocklyDiv');
+            toolbox.classList.toggle('shrink');
+            blocklyDiv.classList.toggle('shrink');
+        }
+
+        // Run the generated code
+        function runCode() {
+            var code = Blockly.Python.workspaceToCode(workspace);
+            document.getElementById('code').value = code;
+            document.getElementById('output').innerText = 'Running code:\n' + code;
+
+            if (window.pyodide) {
+                (async () => {
+                    try {
+                        await window.pyodide.loadPackage(['micropip']);
+                        let micropip = window.pyodide.pyimport('micropip');
+                        await micropip.install('numpy');
+                        let result = await window.pyodide.runPythonAsync(code);
+                        document.getElementById('output').innerText += '\nResult:\n' + result;
+                    } catch (error) {
+                        document.getElementById('output').innerText += '\nError:\n' + error;
+                    }
+                })();
+            } else {
+                document.getElementById('output').innerText += '\nPyodide is not loaded.';
+            }
+        }
+
+        // Set up event listener for trash icon
+        document.getElementById('trash').addEventListener('click', function() {
+            workspace.clear();
+        });
+
+        // Add search functionality
+        document.getElementById('searchBar').addEventListener('input', function() {
+            var searchValue = this.value.toLowerCase();
+            var blocks = document.querySelectorAll('#toolbox block');
+            blocks.forEach(block => {
+                var blockText = block.textContent.toLowerCase();
+                if (blockText.includes(searchValue)) {
+                    block.style.display = 'block';
+                } else {
+                    block.style.display = 'none';
+                }
+            });
+        });
+
+        // Add event listener to make scroll events passive
+        document.addEventListener('wheel', function(event) {
+            // Event handler code
+        }, { passive: true });
+
+        // Load Pyodide on page load
+        window.onload = loadPyodide;
+    </script>
+</body>
+</html>
