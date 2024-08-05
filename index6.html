@@ -1,1 +1,360 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+    <script src="https://unpkg.com/blockly/python_compressed.js"></script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
 
+        #container {
+            display: flex;
+            flex-direction: row;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #toolbox {
+            display: flex;
+            flex-direction: column;
+            width: 250px;
+            background-color: #f0f0f0;
+            border-right: 1px solid #ccc;
+            padding: 10px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            position: relative;
+            transition: width 0.3s;
+        }
+
+        .resize-handle {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 10px;
+            height: 100%;
+            cursor: ew-resize;
+            background-color: #ccc;
+        }
+
+        #blocklyDiv {
+            flex-grow: 1;
+            height: 100%;
+            background-color: #ffffff;
+            transition: width 0.3s;
+        }
+
+        #runButton, #copyButton {
+            position: absolute;
+            top: 20px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #runButton {
+            right: 100px;
+            
+        }
+
+        #copyButton {
+            right: 45px;
+            top:70px;
+        }
+
+        #runButton:hover {
+            background-color: #45a049;
+        }
+
+        #copyButton:hover {
+            background-color: #0056b3;
+        }
+
+        #output {
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-top: 1px solid #ccc;
+        }
+
+        #collapseButton {
+            position: absolute;
+            top: 120px;
+            right: 30px;
+            padding: 10px 20px;
+            background-color: #ddd;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        #collapseButton:hover {
+            background-color: #ccc;
+        }
+
+        @media (max-width: 768px) {
+            #container {
+                flex-direction: column;
+            }
+
+            #toolbox {
+                width: 100%;
+                height: 20%;
+                border-right: none;
+                border-bottom: 1px solid #ccc;
+            }
+
+            #blocklyDiv {
+                width: 100%;
+                height: 50%;
+            }
+
+            .resize-handle {
+                cursor: ns-resize;
+                height: 10px;
+                width: 100%;
+                bottom: 0;
+                right: auto;
+            }
+            #collapseButton {
+              display: none;
+            }
+            #runButton {
+              padding: 5px 10px;
+              top:50px;
+            }
+            
+            #copyButton {
+              padding: 5px 10px;
+              top: 90px
+              
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="toolbox">
+            <input type="text" id="searchBar" placeholder="Search blocks">
+            <div id="categoryList">
+                <!-- Block categories will be added here -->
+            </div>
+            <div class="resize-handle"></div>
+        </div>
+        <div id="blocklyDiv"></div>
+    </div>
+    <textarea id="code" rows="10" cols="50" style="display:none;"></textarea>
+    <button id="runButton" onclick="runCode()">Run</button>
+    <button id="copyButton" onclick="copyCode()">Copy Code</button>
+    <button id="collapseButton" onclick="toggleToolbox()">Toggle Toolbox</button>
+    <pre id="output"></pre>
+
+    <script>
+        var workspace;
+
+        function initializeBlockly() {
+            Blockly.defineBlocksWithJsonArray([
+                {
+                    "type": "variables_set_int",
+                    "message0": "set %1 to int %2",
+                    "args0": [
+                        {
+                            "type": "field_variable",
+                            "name": "VAR",
+                            "variable": "item"
+                        },
+                        {
+                            "type": "input_value",
+                            "name": "VALUE",
+                            "check": "Number"
+                        }
+                    ],
+                    "previousStatement": null,
+                    "nextStatement": null,
+                    "colour": 230,
+                    "tooltip": "Set variable to an integer",
+                    "helpUrl": ""
+                },
+                {
+                    "type": "variables_set_str",
+                    "message0": "set %1 to str %2",
+                    "args0": [
+                        {
+                            "type": "field_variable",
+                            "name": "VAR",
+                            "variable": "item"
+                        },
+                        {
+                            "type": "input_value",
+                            "name": "VALUE",
+                            "check": "String"
+                        }
+                    ],
+                    "previousStatement": null,
+                    "nextStatement": null,
+                    "colour": 230,
+                    "tooltip": "Set variable to a string",
+                    "helpUrl": ""
+                }
+            ]);
+
+            workspace = Blockly.inject('blocklyDiv', {
+                toolbox: `
+                    <xml id="toolbox-categories" style="display: none">
+                        <category name="Variables" custom="VARIABLE" colour="#A65C81"></category>
+                        <category name="Logic" colour="#5C81A6">
+                            <block type="controls_if"></block>
+                            <block type="logic_compare"></block>
+                            <block type="logic_operation"></block>
+                        </category>
+                        <category name="Loops" colour="#5CA65C">
+                            <block type="controls_repeat_ext"></block>
+                            <block type="controls_whileUntil"></block>
+                        </category>
+                        <category name="Math" colour="#5C68A6">
+                            <block type="math_number"></block>
+                            <block type="math_arithmetic"></block>
+                        </category>
+                        <category name="Text" colour="#5CA6A6">
+                            <block type="text"></block>
+                            <block type="text_print"></block>
+                            <block type="text_join"></block>
+                            <block type="text_length"></block>
+                        </category>
+                        <category name="Custom" colour="#FFD700">
+                            <block type="variables_set_int"></block>
+                            <block type="variables_set_str"></block>
+                        </category>
+                    </xml>
+                `,
+                trashcan: true
+            });
+
+            // Add custom Python generators
+            Blockly.Python['variables_set_int'] = function(block) {
+                var varName = Blockly.Python.variableDB_.getName(block.getFieldValue('VAR'), Blockly.Variables.NAME_TYPE);
+                var value = Blockly.Python.valueToCode(block, 'VALUE', Blockly.Python.ORDER_ATOMIC) || '0';
+                return varName + ' = int(' + value + ')\n';
+            };
+
+            Blockly.Python['variables_set_str'] = function(block) {
+                var varName = Blockly.Python.variableDB_.getName(block.getFieldValue('VAR'), Blockly.Variables.NAME_TYPE);
+                var value = Blockly.Python.valueToCode(block, 'VALUE', Blockly.Python.ORDER_ATOMIC) || '\'\'';
+                return varName + ' = str(' + value + ')\n';
+            };
+
+            Blockly.Python['variables_get'] = function(block) {
+                var varName = Blockly.Python.variableDB_.getName(block.getFieldValue('VAR'), Blockly.Variables.NAME_TYPE);
+                return [varName, Blockly.Python.ORDER_ATOMIC];
+            };
+
+            Blockly.Python['math_arithmetic'] = function(block) {
+                var OPERATORS = {
+                    'ADD': '+',
+                    'MINUS': '-',
+                    'MULTIPLY': '*',
+                    'DIVIDE': '/'
+                };
+                var operator = OPERATORS[block.getFieldValue('OP')];
+                var argument0 = Blockly.Python.valueToCode(block, 'A', Blockly.Python.ORDER_ATOMIC);
+                var argument1 = Blockly.Python.valueToCode(block, 'B', Blockly.Python.ORDER_ATOMIC);
+                var code = argument0 + ' ' + operator + ' ' + argument1;
+                return [code, Blockly.Python.ORDER_NONE];
+            };
+
+            Blockly.Python['text_join'] = function(block) {
+                var value0 = Blockly.Python.valueToCode(block, 'ADD0', Blockly.Python.ORDER_ATOMIC) || "''";
+                var value1 = Blockly.Python.valueToCode(block, 'ADD1', Blockly.Python.ORDER_ATOMIC) || "''";
+                var code = value0 + ' + ' + value1;
+                return [code, Blockly.Python.ORDER_NONE];
+            };
+
+            Blockly.Python['text_length'] = function(block) {
+                var value = Blockly.Python.valueToCode(block, 'VALUE', Blockly.Python.ORDER_ATOMIC) || "''";
+                var code = 'len(' + value + ')';
+                return [code, Blockly.Python.ORDER_FUNCTION_CALL];
+            };
+        }
+
+        function toggleToolbox() {
+            var toolbox = document.getElementById('toolbox');
+            toolbox.classList.toggle('shrink');
+        }
+
+        function runCode() {
+            var code = Blockly.Python.workspaceToCode(workspace);
+            document.getElementById('code').value = code;
+            document.getElementById('output').innerText = 'Generated code:\n' + code;
+        }
+
+        function copyCode() {
+            var code = document.getElementById('code').value;
+            navigator.clipboard.writeText(code).then(function() {
+                alert('Code copied to clipboard!');
+            }, function(err) {
+                alert('Failed to copy code: ' + err);
+            });
+        }
+
+        // Function to handle toolbox resizing
+        function initResize() {
+            const toolbox = document.getElementById('toolbox');
+            const resizeHandle = document.querySelector('.resize-handle');
+
+            resizeHandle.addEventListener('mousedown', function(event) {
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+                
+                function onMouseMove(event) {
+                    if (window.innerWidth > 768) {
+                        const newWidth = event.clientX - toolbox.getBoundingClientRect().left;
+                        if (newWidth > 50 && newWidth < window.innerWidth - 50) {
+                            toolbox.style.width = newWidth + 'px';
+                            document.getElementById('blocklyDiv').style.width = `calc(100% - ${newWidth}px)`;
+                        }
+                    } else {
+                        const newHeight = event.clientY - toolbox.getBoundingClientRect().top;
+                        if (newHeight > 50 && newHeight < window.innerHeight - 50) {
+                            toolbox.style.height = newHeight + 'px';
+                            document.getElementById('blocklyDiv').style.height = `calc(100% - ${newHeight}px)`;
+                        }
+                    }
+                }
+
+                function onMouseUp() {
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                }
+            });
+        }
+
+        window.onload = function() {
+            initializeBlockly();
+            initResize();
+
+            document.getElementById('searchBar').addEventListener('input', function() {
+                var searchValue = this.value.toLowerCase();
+                var blocks = document.querySelectorAll('#toolbox block');
+                blocks.forEach(block => {
+                    var blockText = block.textContent.toLowerCase();
+                    if (blockText.includes(searchValue)) {
+                        block.style.display = 'block';
+                    } else {
+                        block.style.display = 'none';
+                    }
+                });
+            });
+        };
+    </script>
+</body>
+  </html>
+  
