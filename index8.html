@@ -176,290 +176,310 @@
     <pre id="output"></pre>
 
     <script>
-        var workspace;
-        var isOutputCollapsed = false;
+    // ประกาศตัวแปรสำหรับ workspace และตัวแปรบอกสถานะการยุบหรือขยายของผลลัพธ์
+    var workspace;
+    var isOutputCollapsed = false;
 
-        const languageData = {
-            en: {
-                "Run": "Run",
-                "Copy Code": "Copy Code",
-                "Toggle Output": "Toggle Output",
-                "Collapse Output": "Collapse Output",
-                "Expand Output": "Expand Output",
-                "Search blocks": "Search blocks",
-                "Variables": "Variables",
-                "Logic": "Logic",
-                "Loops": "Loops",
-                "Math": "Math",
-                "Text": "Text",
-                "set %1 to int %2": "set %1 to int %2",
-                "set %1 to str %2": "set %1 to str %2"
+    // ข้อมูลภาษาสำหรับคำแปลของป้ายชื่อและข้อความต่างๆ
+    const languageData = {
+        en: {
+            "Run": "Run",
+            "Copy Code": "Copy Code",
+            "Toggle Output": "Toggle Output",
+            "Collapse Output": "Collapse Output",
+            "Expand Output": "Expand Output",
+            "Search blocks": "Search blocks",
+            "Variables": "Variables",
+            "Logic": "Logic",
+            "Loops": "Loops",
+            "Math": "Math",
+            "Text": "Text",
+            "set %1 to int %2": "set %1 to int %2",
+            "set %1 to str %2": "set %1 to str %2"
+        },
+        th: {
+            "Run": "รัน",
+            "Copy Code": "คัดลอกโค้ด",
+            "Toggle Output": "สลับผลลัพธ์",
+            "Collapse Output": "ยุบผลลัพธ์",
+            "Expand Output": "ขยายผลลัพธ์",
+            "Search blocks": "ค้นหาบล็อก",
+            "Variables": "ตัวแปร",
+            "Logic": "ตรรกะ",
+            "Loops": "ลูป",
+            "Math": "คณิตศาสตร์",
+            "Text": "ข้อความ",
+            "set %1 to int %2": "กำหนด %1 เป็น int %2",
+            "set %1 to str %2": "กำหนด %1 เป็น str %2"
+        }
+    };
+
+    // ฟังก์ชันสำหรับเปลี่ยนภาษา
+    function changeLanguage() {
+        // ดึงค่าภาษาที่เลือกจาก dropdown
+        const selectedLang = document.getElementById('languageSelect').value;
+
+        // อัพเดทข้อความของปุ่มและแถบค้นหาตามภาษาที่เลือก
+        const elementsToUpdate = {
+            "runButton": languageData[selectedLang]["Run"],
+            "copyButton": languageData[selectedLang]["Copy Code"],
+            "collapseButton": isOutputCollapsed ? languageData[selectedLang]["Expand Output"] : languageData[selectedLang]["Collapse Output"],
+            "searchBar": languageData[selectedLang]["Search blocks"]
+        };
+
+        for (const [id, translation] of Object.entries(elementsToUpdate)) {
+            document.getElementById(id).textContent = translation;
+        }
+
+        // อัพเดท placeholder ของแถบค้นหา
+        document.getElementById('searchBar').placeholder = languageData[selectedLang]["Search blocks"];
+
+        // อัพเดทข้อความของหมวดหมู่ใน toolbox
+        const categoryElements = document.querySelectorAll('#toolbox .blocklyTreeLabel');
+        const categories = ["Variables", "Logic", "Loops", "Math", "Text"];
+        categoryElements.forEach((element, index) => {
+            element.textContent = languageData[selectedLang][categories[index]];
+        });
+
+        // อัพเดทข้อความของบล็อกใน Blockly
+        updateBlocklyMessages(selectedLang);
+
+        // อัพเดท toolbox XML ตามภาษาที่เลือก
+        workspace.updateToolbox(generateToolboxXml(selectedLang));
+    }
+
+    // ฟังก์ชันสำหรับอัพเดทข้อความใน Blockly blocks
+    function updateBlocklyMessages(lang) {
+        Blockly.Blocks['variables_set_int'].message0 = languageData[lang]["set %1 to int %2"];
+        Blockly.Blocks['variables_set_str'].message0 = languageData[lang]["set %1 to str %2"];
+    }
+
+    // ฟังก์ชันสำหรับสร้าง XML ของ toolbox ตามภาษาที่เลือก
+    function generateToolboxXml(lang) {
+        return `
+            <xml id="toolbox-categories" style="display: none">
+                <category name="${languageData[lang]["Variables"]}" custom="VARIABLE" colour="#A65C81">
+                    <block type="variables_set_int"></block>
+                    <block type="variables_set_str"></block>
+                </category>
+                <category name="${languageData[lang]["Logic"]}" colour="#5C81A6">
+                    <block type="controls_if"></block>
+                    <block type="logic_compare"></block>
+                    <block type="logic_operation"></block>
+                </category>
+                <category name="${languageData[lang]["Loops"]}" colour="#5CA65C">
+                    <block type="controls_repeat_ext"></block>
+                    <block type="controls_whileUntil"></block>
+                </category>
+                <category name="${languageData[lang]["Math"]}" colour="#5C68A6">
+                    <block type="math_number"></block>
+                    <block type="math_arithmetic"></block>
+                </category>
+                <category name="${languageData[lang]["Text"]}" colour="#5CA6A6">
+                    <block type="text"></block>
+                    <block type="text_print"></block>
+                    <block type="text_join"></block>
+                    <block type="text_length"></block>
+                </category>
+            </xml>
+        `;
+    }
+
+    // ฟังก์ชันสำหรับเริ่มต้นใช้งาน Blockly
+    function initializeBlockly() {
+        Blockly.defineBlocksWithJsonArray([
+            {
+                "type": "variables_set_int",
+                "message0": languageData['en']["set %1 to int %2"],
+                "args0": [
+                    {
+                        "type": "field_variable",
+                        "name": "VAR",
+                        "variable": "item"
+                    },
+                    {
+                        "type": "input_value",
+                        "name": "VALUE",
+                        "check": "Number"
+                    }
+                ],
+                "previousStatement": null,
+                "nextStatement": null,
+                "colour": 230,
+                "tooltip": "Set variable to an integer",
+                "helpUrl": ""
             },
-            th: {
-                "Run": "รัน",
-                "Copy Code": "คัดลอกโค้ด",
-                "Toggle Output": "สลับผลลัพธ์",
-                "Collapse Output": "ยุบผลลัพธ์",
-                "Expand Output": "ขยายผลลัพธ์",
-                "Search blocks": "ค้นหาบล็อก",
-                "Variables": "ตัวแปร",
-                "Logic": "ตรรกะ",
-                "Loops": "ลูป",
-                "Math": "คณิตศาสตร์",
-                "Text": "ข้อความ",
-                "set %1 to int %2": "กำหนด %1 เป็น int %2",
-                "set %1 to str %2": "กำหนด %1 เป็น str %2"
+            {
+                "type": "variables_set_str",
+                "message0": languageData['en']["set %1 to str %2"],
+                "args0": [
+                    {
+                        "type": "field_variable",
+                        "name": "VAR",
+                        "variable": "item"
+                    },
+                    {
+                        "type": "input_value",
+                        "name": "VALUE",
+                        "check": "String"
+                    }
+                ],
+                "previousStatement": null,
+                "nextStatement": null,
+                "colour": 230,
+                "tooltip": "Set variable to a string",
+                "helpUrl": ""
             }
+        ]);
+
+        // สร้างและตั้งค่า workspace ของ Blockly
+        workspace = Blockly.inject('blocklyDiv', {
+            toolbox: generateToolboxXml('en'),
+            trashcan: true,
+            zoom: {
+                controls: true,
+                wheel: true,
+                startScale: 1.0,
+                maxScale: 3,
+                minScale: 0.3,
+                scaleSpeed: 1.2
+            }
+        });
+
+        // ฟังก์ชันสำหรับแปลงบล็อกเป็นโค้ด Python
+        Blockly.Python['variables_set_int'] = function(block) {
+            var varName = Blockly.Python.variableDB_.getName(block.getFieldValue('VAR'), Blockly.Variables.NAME_TYPE);
+            var value = Blockly.Python.valueToCode(block, 'VALUE', Blockly.Python.ORDER_ATOMIC) || '0';
+            return varName + ' = int(' + value + ')\n';
         };
 
-        function changeLanguage() {
-            const selectedLang = document.getElementById('languageSelect').value;
-            const elementsToUpdate = {
-                "runButton": languageData[selectedLang]["Run"],
-                "copyButton": languageData[selectedLang]["Copy Code"],
-                "collapseButton": isOutputCollapsed ? languageData[selectedLang]["Expand Output"] : languageData[selectedLang]["Collapse Output"],
-                "searchBar": languageData[selectedLang]["Search blocks"]
-            };
-
-            for (const [id, translation] of Object.entries(elementsToUpdate)) {
-                document.getElementById(id).textContent = translation;
-            }
-
-            document.getElementById('searchBar').placeholder = languageData[selectedLang]["Search blocks"];
-
-            const categoryElements = document.querySelectorAll('#toolbox .blocklyTreeLabel');
-            const categories = ["Variables", "Logic", "Loops", "Math", "Text"];
-            categoryElements.forEach((element, index) => {
-                element.textContent = languageData[selectedLang][categories[index]];
-            });
-
-            updateBlocklyMessages(selectedLang);
-
-            workspace.updateToolbox(generateToolboxXml(selectedLang));
-        }
-
-        function updateBlocklyMessages(lang) {
-            Blockly.Blocks['variables_set_int'].message0 = languageData[lang]["set %1 to int %2"];
-            Blockly.Blocks['variables_set_str'].message0 = languageData[lang]["set %1 to str %2"];
-        }
-
-        function generateToolboxXml(lang) {
-            return `
-                <xml id="toolbox-categories" style="display: none">
-                    <category name="${languageData[lang]["Variables"]}" custom="VARIABLE" colour="#A65C81">
-                        <block type="variables_set_int"></block>
-                        <block type="variables_set_str"></block>
-                    </category>
-                    <category name="${languageData[lang]["Logic"]}" colour="#5C81A6">
-                        <block type="controls_if"></block>
-                        <block type="logic_compare"></block>
-                        <block type="logic_operation"></block>
-                    </category>
-                    <category name="${languageData[lang]["Loops"]}" colour="#5CA65C">
-                        <block type="controls_repeat_ext"></block>
-                        <block type="controls_whileUntil"></block>
-                    </category>
-                    <category name="${languageData[lang]["Math"]}" colour="#5C68A6">
-                        <block type="math_number"></block>
-                        <block type="math_arithmetic"></block>
-                    </category>
-                    <category name="${languageData[lang]["Text"]}" colour="#5CA6A6">
-                        <block type="text"></block>
-                        <block type="text_print"></block>
-                        <block type="text_join"></block>
-                        <block type="text_length"></block>
-                    </category>
-                </xml>
-            `;
-        }
-
-        function initializeBlockly() {
-            Blockly.defineBlocksWithJsonArray([
-                {
-                    "type": "variables_set_int",
-                    "message0": languageData['en']["set %1 to int %2"],
-                    "args0": [
-                        {
-                            "type": "field_variable",
-                            "name": "VAR",
-                            "variable": "item"
-                        },
-                        {
-                            "type": "input_value",
-                            "name": "VALUE",
-                            "check": "Number"
-                        }
-                    ],
-                    "previousStatement": null,
-                    "nextStatement": null,
-                    "colour": 230,
-                    "tooltip": "Set variable to an integer",
-                    "helpUrl": ""
-                },
-                {
-                    "type": "variables_set_str",
-                    "message0": languageData['en']["set %1 to str %2"],
-                    "args0": [
-                        {
-                            "type": "field_variable",
-                            "name": "VAR",
-                            "variable": "item"
-                        },
-                        {
-                            "type": "input_value",
-                            "name": "VALUE",
-                            "check": "String"
-                        }
-                    ],
-                    "previousStatement": null,
-                    "nextStatement": null,
-                    "colour": 230,
-                    "tooltip": "Set variable to a string",
-                    "helpUrl": ""
-                }
-            ]);
-
-            workspace = Blockly.inject('blocklyDiv', {
-                toolbox: generateToolboxXml('en'),
-                trashcan: true,
-                zoom: {
-                    controls: true,
-                    wheel: true,
-                    startScale: 1.0,
-                    maxScale: 3,
-                    minScale: 0.3,
-                    scaleSpeed: 1.2
-                }
-            });
-
-            Blockly.Python['variables_set_int'] = function(block) {
-                var varName = Blockly.Python.variableDB_.getName(block.getFieldValue('VAR'), Blockly.Variables.NAME_TYPE);
-                var value = Blockly.Python.valueToCode(block, 'VALUE', Blockly.Python.ORDER_ATOMIC) || '0';
-                return varName + ' = int(' + value + ')\n';
-            };
-
-            Blockly.Python['variables_set_str'] = function(block) {
-                var varName = Blockly.Python.variableDB_.getName(block.getFieldValue('VAR'), Blockly.Variables.NAME_TYPE);
-                var value = Blockly.Python.valueToCode(block, 'VALUE', Blockly.Python.ORDER_ATOMIC) || "''";
-                return varName + ' = str(' + value + ')\n';
-            };
-
-            Blockly.Python['variables_get'] = function(block) {
-                var varName = Blockly.Python.variableDB_.getName(block.getFieldValue('VAR'), Blockly.Variables.NAME_TYPE);
-                return [varName, Blockly.Python.ORDER_ATOMIC];
-            };
-
-            Blockly.Python['math_arithmetic'] = function(block) {
-                var OPERATORS = {
-                    'ADD': '+',
-                    'MINUS': '-',
-                    'MULTIPLY': '*',
-                    'DIVIDE': '/'
-                };
-                var operator = OPERATORS[block.getFieldValue('OP')];
-                var argument0 = Blockly.Python.valueToCode(block, 'A', Blockly.Python.ORDER_ATOMIC);
-                var argument1 = Blockly.Python.valueToCode(block, 'B', Blockly.Python.ORDER_ATOMIC);
-                var code = argument0 + ' ' + operator + ' ' + argument1;
-                return [code, Blockly.Python.ORDER_NONE];
-            };
-
-            Blockly.Python['text_join'] = function(block) {
-                var value0 = Blockly.Python.valueToCode(block, 'ADD0', Blockly.Python.ORDER_ATOMIC) || "''";
-                var value1 = Blockly.Python.valueToCode(block, 'ADD1', Blockly.Python.ORDER_ATOMIC) || "''";
-                var code = value0 + ' + ' + value1;
-                return [code, Blockly.Python.ORDER_NONE];
-            };
-
-            Blockly.Python['text_length'] = function(block) {
-                var value = Blockly.Python.valueToCode(block, 'VALUE', Blockly.Python.ORDER_ATOMIC) || "''";
-                var code = 'len(' + value + ')';
-                return [code, Blockly.Python.ORDER_FUNCTION_CALL];
-            };
-        }
-
-        function toggleToolbox() {
-            var toolbox = document.getElementById('toolbox');
-            toolbox.classList.toggle('shrink');
-        }
-
-        function toggleOutput() {
-            var output = document.getElementById('output');
-            if (isOutputCollapsed) {
-                output.classList.remove('collapsed');
-                output.style.display = 'block';
-                document.getElementById('collapseButton').textContent = languageData[document.getElementById('languageSelect').value]["Collapse Output"];
-            } else {
-                output.classList.add('collapsed');
-                output.style.display = 'none';
-                document.getElementById('collapseButton').textContent = languageData[document.getElementById('languageSelect').value]["Expand Output"];
-            }
-            isOutputCollapsed = !isOutputCollapsed;
-        }
-
-        function runCode() {
-            var code = Blockly.Python.workspaceToCode(workspace);
-            document.getElementById('code').value = code;
-            document.getElementById('output').innerText = 'Generated code:\n' + code;
-        }
-
-        function copyCode() {
-            var code = document.getElementById('code').value;
-            navigator.clipboard.writeText(code).then(function() {
-                alert(languageData[document.getElementById('languageSelect').value]["Copy Code"] + ' copied to clipboard!');
-            }, function(err) {
-                alert('Failed to copy code: ' + err);
-            });
-        }
-
-        function initResize() {
-            const toolbox = document.getElementById('toolbox');
-            const resizeHandle = document.querySelector('.resize-handle');
-
-            resizeHandle.addEventListener('mousedown', function(event) {
-                document.addEventListener('mousemove', onMouseMove);
-                document.addEventListener('mouseup', onMouseUp);
-
-                function onMouseMove(event) {
-                    if (window.innerWidth > 768) {
-                        const newWidth = event.clientX - toolbox.getBoundingClientRect().left;
-                        if (newWidth > 50 && newWidth < window.innerWidth - 50) {
-                            toolbox.style.width = newWidth + 'px';
-                            document.getElementById('blocklyDiv').style.width = `calc(100% - ${newWidth}px)`;
-                        }
-                    } else {
-                        const newHeight = event.clientY - toolbox.getBoundingClientRect().top;
-                        if (newHeight > 50 && newHeight < window.innerHeight - 50) {
-                            toolbox.style.height = newHeight + 'px';
-                            document.getElementById('blocklyDiv').style.height = `calc(100% - ${newHeight}px)`;
-                        }
-                    }
-                }
-
-                function onMouseUp() {
-                    document.removeEventListener('mousemove', onMouseMove);
-                    document.removeEventListener('mouseup', onMouseUp);
-                }
-            });
-        }
-
-        window.onload = function() {
-            initializeBlockly();
-            initResize();
-
-            document.getElementById('searchBar').addEventListener('input', function() {
-                var searchValue = this.value.toLowerCase();
-                var blocks = document.querySelectorAll('#toolbox block');
-                blocks.forEach(block => {
-                    var blockText = block.textContent.toLowerCase();
-                    if (blockText.includes(searchValue)) {
-                        block.style.display = 'block';
-                    } else {
-                        block.style.display = 'none';
-                    }
-                });
-            });
-            changeLanguage();
+        Blockly.Python['variables_set_str'] = function(block) {
+            var varName = Blockly.Python.variableDB_.getName(block.getFieldValue('VAR'), Blockly.Variables.NAME_TYPE);
+            var value = Blockly.Python.valueToCode(block, 'VALUE', Blockly.Python.ORDER_ATOMIC) || "''";
+            return varName + ' = str(' + value + ')\n';
         };
-    </script>
-</body>
-</html>
+
+        Blockly.Python['variables_get'] = function(block) {
+            var varName = Blockly.Python.variableDB_.getName(block.getFieldValue('VAR'), Blockly.Variables.NAME_TYPE);
+            return [varName, Blockly.Python.ORDER_ATOMIC];
+        };
+
+        Blockly.Python['math_arithmetic'] = function(block) {
+            var OPERATORS = {
+                'ADD': '+',
+                'MINUS': '-',
+                'MULTIPLY': '*',
+                'DIVIDE': '/'
+            };
+            var operator = OPERATORS[block.getFieldValue('OP')];
+            var argument0 = Blockly.Python.valueToCode(block, 'A', Blockly.Python.ORDER_ATOMIC);
+            var argument1 = Blockly.Python.valueToCode(block, 'B', Blockly.Python.ORDER_ATOMIC);
+            var code = argument0 + ' ' + operator + ' ' + argument1;
+            return [code, Blockly.Python.ORDER_NONE];
+        };
+
+        Blockly.Python['text_join'] = function(block) {
+            var value0 = Blockly.Python.valueToCode(block, 'ADD0', Blockly.Python.ORDER_ATOMIC) || "''";
+            var value1 = Blockly.Python.valueToCode(block, 'ADD1', Blockly.Python.ORDER_ATOMIC) || "''";
+            var code = value0 + ' + ' + value1;
+            return [code, Blockly.Python.ORDER_NONE];
+        };
+
+        Blockly.Python['text_length'] = function(block) {
+            var value = Blockly.Python.valueToCode(block, 'VALUE', Blockly.Python.ORDER_ATOMIC) || "''";
+            var code = 'len(' + value + ')';
+            return [code, Blockly.Python.ORDER_FUNCTION_CALL];
+        };
+    }
+
+    // ฟังก์ชันสำหรับสลับการแสดงผลของ toolbox
+    function toggleToolbox() {
+        var toolbox = document.getElementById('toolbox');
+        toolbox.classList.toggle('shrink');
+    }
+
+    // ฟังก์ชันสำหรับสลับการยุบและขยายของผลลัพธ์
+    function toggleOutput() {
+        var output = document.getElementById('output');
+        if (isOutputCollapsed) {
+            output.classList.remove('collapsed');
+            output.style.display = 'block';
+            document.getElementById('collapseButton').textContent = languageData[document.getElementById('languageSelect').value]["Collapse Output"];
+        } else {
+            output.classList.add('collapsed');
+            output.style.display = 'none';
+            document.getElementById('collapseButton').textContent = languageData[document.getElementById('languageSelect').value]["Expand Output"];
+        }
+        isOutputCollapsed = !isOutputCollapsed;
+    }
+
+    // ฟังก์ชันสำหรับรันโค้ดจาก workspace และแสดงผลลัพธ์
+    function runCode() {
+        var code = Blockly.Python.workspaceToCode(workspace);
+        document.getElementById('code').value = code;
+        document.getElementById('output').innerText = 'Generated code:\n' + code;
+    }
+
+    // ฟังก์ชันสำหรับคัดลอกโค้ดไปยัง clipboard
+    function copyCode() {
+        var code = document.getElementById('code').value;
+        navigator.clipboard.writeText(code).then(function() {
+            alert(languageData[document.getElementById('languageSelect').value]["Copy Code"] + ' copied to clipboard!');
+        }, function(err) {
+            alert('Failed to copy code: ' + err);
+        });
+    }
+
+    // ฟังก์ชันสำหรับการปรับขนาดของ toolbox
+    function initResize() {
+        const toolbox = document.getElementById('toolbox');
+        const resizeHandle = document.querySelector('.resize-handle');
+
+        resizeHandle.addEventListener('mousedown', function(event) {
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+
+            function onMouseMove(event) {
+                if (window.innerWidth > 768) {
+                    const newWidth = event.clientX - toolbox.getBoundingClientRect().left;
+                    if (newWidth > 50 && newWidth < window.innerWidth - 50) {
+                        toolbox.style.width = newWidth + 'px';
+                        document.getElementById('blocklyDiv').style.width = `calc(100% - ${newWidth}px)`;
+                    }
+                } else {
+                    const newHeight = event.clientY - toolbox.getBoundingClientRect().top;
+                    if (newHeight > 50 && newHeight < window.innerHeight - 50) {
+                        toolbox.style.height = newHeight + 'px';
+                        document.getElementById('blocklyDiv').style.height = `calc(100% - ${newHeight}px)`;
+                    }
+                }
+            }
+
+            function onMouseUp() {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            }
+        });
+    }
+
+    // ฟังก์ชันที่ทำงานเมื่อโหลดหน้าเว็บเสร็จ
+    window.onload = function() {
+        initializeBlockly();
+        initResize();
+
+        // ฟังก์ชันสำหรับค้นหาบล็อกใน toolbox
+        document.getElementById('searchBar').addEventListener('input', function() {
+            var searchValue = this.value.toLowerCase();
+            var blocks = document.querySelectorAll('#toolbox block');
+            blocks.forEach(block => {
+                var blockText = block.textContent.toLowerCase();
+                if (blockText.includes(searchValue)) {
+                    block.style.display = 'block';
+                } else {
+                    block.style.display = 'none';
+                }
+            });
+        });
+        changeLanguage();
+    };
+</script>
