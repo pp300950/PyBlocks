@@ -83,6 +83,9 @@
             padding: 10px;
             background-color: #f9f9f9;
             border-top: 1px solid #ccc;
+            display: none; /* Hidden by default */
+            transition: height 0.3s;
+            overflow: auto;
         }
 
         #collapseButton {
@@ -98,6 +101,13 @@
 
         #collapseButton:hover {
             background-color: #ccc;
+        }
+
+        .collapsed {
+            height: 0;
+            overflow: hidden;
+            padding: 0;
+            border: none;
         }
 
         @media (max-width: 768px) {
@@ -126,7 +136,9 @@
             }
 
             #collapseButton {
-                display: none;
+                padding: 5px 10px;
+                top: 90px;
+                right: 160px;
             }
 
             #runButton {
@@ -146,7 +158,6 @@
         <div id="toolbox">
             <input type="text" id="searchBar" placeholder="Search blocks">
             <div id="categoryList">
-                <!-- Block categories will be added here -->
             </div>
             <div class="resize-handle"></div>
         </div>
@@ -155,11 +166,12 @@
     <textarea id="code" rows="10" cols="50" style="display:none;"></textarea>
     <button id="runButton" onclick="runCode()">Run</button>
     <button id="copyButton" onclick="copyCode()">Copy Code</button>
-    <button id="collapseButton" onclick="toggleToolbox()">Toggle Toolbox</button>
+    <button id="collapseButton" onclick="toggleOutput()">Toggle Output</button>
     <pre id="output"></pre>
 
     <script>
         var workspace;
+        var isOutputCollapsed = false;
 
         function initializeBlockly() {
             Blockly.defineBlocksWithJsonArray([
@@ -286,6 +298,20 @@
         function toggleToolbox() {
             var toolbox = document.getElementById('toolbox');
             toolbox.classList.toggle('shrink');
+        }
+
+        function toggleOutput() {
+            var output = document.getElementById('output');
+            if (isOutputCollapsed) {
+                output.classList.remove('collapsed');
+                output.style.display = 'block';
+                document.getElementById('collapseButton').textContent = 'Collapse Output';
+            } else {
+                output.classList.add('collapsed');
+                output.style.display = 'none';
+                document.getElementById('collapseButton').textContent = 'Expand Output';
+            }
+            isOutputCollapsed = !isOutputCollapsed;
         }
 
         function runCode() {
