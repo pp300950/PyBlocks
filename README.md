@@ -1,5 +1,6 @@
 # PyBlocks
 Visual Programming Blocks for Python  from Html Css Js.
 # V 0.0.9
-![Screenshot 2024-08-05 170407](https://github.com/user-attachments/assets/60dfcf49-dd0e-4715-8f25-10de6abccf0c)
+![IMG_20240806_092042](https://github.com/user-attachments/assets/cc6f3aeb-7a6c-4db7-b226-a2e094967a8e)
+
 ![Screenshot 2024-08-05 170454](https://github.com/user-attachments/assets/e6fdb0a1-9189-4126-829c-be1eab6781bb)
