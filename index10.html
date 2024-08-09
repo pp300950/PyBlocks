@@ -405,13 +405,14 @@
         
     }
 
-    function copyCode() {
-        var code = Blockly.Python.workspaceToCode(workspace);
-        var codeTextarea = document.getElementById('code');
-        codeTextarea.value = code;
-        codeTextarea.select();
-        document.execCommand('copy');
-    }
+      function copyCode() {
+    var code = Blockly.Python.workspaceToCode(workspace);
+    navigator.clipboard.writeText(code).then(function() {
+        alert('Code copied to clipboard!');
+    }).catch(function(err) {
+        alert('Failed to copy code: ' + err);
+    });
+}
 
     function toggleOutput() {
         const outputDiv = document.getElementById('tab');
