@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PyBlocks — Visual Python Builder</title>
+<script src="https://unpkg.com/blockly/blockly.min.js"></script>
+<script src="https://unpkg.com/blockly/python_compressed.js"></script>
+<script src="https://unpkg.com/blockly/javascript_compressed.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --bg-app: #1e1f2e;
+        --bg-panel: #262838;
+        --bg-panel-alt: #2d2f42;
+        --bg-canvas: #16171f;
+        --border: #3a3d54;
+        --text-main: #e8e9f0;
+        --text-dim: #9497b0;
+        --accent-green: #7ee787;
+        --accent-yellow: #f0c674;
+        --accent-blue: #6fa8f5;
+        --accent-red: #f28b82;
+        --font-display: 'JetBrains Mono', monospace;
+        --font-body: 'Inter', sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        font-family: var(--font-body);
+        background: var(--bg-app);
+        color: var(--text-main);
+    }
+
+    body {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    /* ===== Top bar ===== */
+    #topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 18px;
+        background: var(--bg-panel);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        z-index: 50;
+    }
+
+    #brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 18px;
+        letter-spacing: 0.5px;
+    }
+
+    #brand .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--accent-green);
+        box-shadow: 0 0 8px var(--accent-green);
+    }
+
+    #brand .sub {
+        font-family: var(--font-body);
+        font-weight: 400;
+        font-size: 12px;
+        color: var(--text-dim);
+        margin-left: 4px;
+    }
+
+    #topActions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    select#languageSelect {
+        background: var(--bg-panel-alt);
+        color: var(--text-main);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 7px 10px;
+        font-family: var(--font-body);
+        font-size: 13px;
+        cursor: pointer;
+    }
+
+    .btn {
+        font-family: var(--font-body);
+        font-weight: 600;
+        font-size: 13px;
+        padding: 8px 16px;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: transform 0.08s ease, filter 0.15s ease;
+        white-space: nowrap;
+    }
+    .btn:active { transform: scale(0.97); }
+
+    .btn-primary { background: var(--accent-green); color: #10331a; }
+    .btn-primary:hover { filter: brightness(1.08); }
+
+    .btn-secondary { background: var(--bg-panel-alt); color: var(--text-main); border-color: var(--border); }
+    .btn-secondary:hover { background: #363850; }
+
+    .btn-ghost { background: transparent; color: var(--text-dim); border-color: var(--border); }
+    .btn-ghost:hover { color: var(--text-main); border-color: var(--text-dim); }
+
+    /* ===== Main layout ===== */
+    #container {
+        display: flex;
+        flex-direction: row;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    #toolbox {
+        display: flex;
+        flex-direction: column;
+        width: 260px;
+        min-width: 180px;
+        max-width: 480px;
+        background: var(--bg-panel);
+        border-right: 1px solid var(--border);
+        padding: 12px;
+        overflow-y: auto;
+        position: relative;
+    }
+
+    #toolbox h2 {
+        font-family: var(--font-display);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-dim);
+        margin: 4px 0 10px 2px;
+    }
+
+    .resize-handle {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 6px;
+        height: 100%;
+        cursor: ew-resize;
+        background: transparent;
+    }
+    .resize-handle:hover { background: var(--accent-blue); opacity: 0.4; }
+
+    #blocklyDiv {
+        flex-grow: 1;
+        height: 100%;
+        background: var(--bg-canvas);
+        position: relative;
+    }
+
+    /* ===== Output panel ===== */
+    #outputPanel {
+        background: var(--bg-panel);
+        border-top: 1px solid var(--border);
+        flex-shrink: 0;
+        transition: height 0.25s ease;
+        height: 230px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    #outputPanel.collapsed { height: 34px; }
+
+    #outputHeader {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 14px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        height: 34px;
+        box-sizing: border-box;
+    }
+
+    #outputTabs {
+        display: flex;
+        gap: 4px;
+    }
+
+    .tabBtn {
+        background: transparent;
+        border: none;
+        color: var(--text-dim);
+        font-family: var(--font-display);
+        font-size: 12px;
+        padding: 6px 12px;
+        border-radius: 5px 5px 0 0;
+        cursor: pointer;
+    }
+    .tabBtn.active {
+        color: var(--accent-green);
+        background: var(--bg-panel-alt);
+    }
+
+    #outputBody {
+        flex: 1;
+        overflow: auto;
+        padding: 12px 16px;
+        font-family: var(--font-display);
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    .outputView { display: none; white-space: pre-wrap; word-break: break-word; margin: 0; }
+    .outputView.active { display: block; }
+
+    #consoleView .line { padding: 2px 0; }
+    #consoleView .line.err { color: var(--accent-red); }
+    #consoleView .line.info { color: var(--text-dim); font-style: italic; }
+
+    #pyView { color: var(--accent-yellow); }
+
+    /* ===== Category buttons in toolbox (rendered by Blockly, styled via injectionDiv wrapper below) ===== */
+    .blocklyTreeRow {
+        border-radius: 6px !important;
+        margin-bottom: 2px !important;
+    }
+
+    /* ===== Help modal ===== */
+    #helpOverlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 10, 16, 0.6);
+        backdrop-filter: blur(2px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+    #helpOverlay.open { display: flex; }
+
+    #helpCard {
+        width: min(520px, 90vw);
+        max-height: 80vh;
+        overflow-y: auto;
+        background: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 22px 24px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    #helpCard .helpEyebrow {
+        font-family: var(--font-display);
+        font-size: 11px;
+        color: var(--accent-green);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 6px;
+    }
+
+    #helpCard h3 {
+        margin: 0 0 12px 0;
+        font-family: var(--font-display);
+        font-size: 20px;
+    }
+
+    #helpCard .helpSection {
+        margin-bottom: 14px;
+    }
+    #helpCard .helpSection .label {
+        font-size: 11px;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+    }
+    #helpCard .helpSection .content {
+        font-size: 14px;
+        line-height: 1.55;
+        color: var(--text-main);
+    }
+    #helpCard pre.helpCode {
+        background: var(--bg-canvas);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-family: var(--font-display);
+        font-size: 13px;
+        color: var(--accent-yellow);
+        overflow-x: auto;
+        margin: 0;
+    }
+    #helpCard .closeRow {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 10px;
+    }
+
+    /* Help trigger button injected next to each toolbox category */
+    .catRow {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+    }
+    .helpDot {
+        flex-shrink: 0;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--bg-panel-alt);
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+        font-size: 11px;
+        font-family: var(--font-display);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        user-select: none;
+    }
+    .helpDot:hover {
+        color: var(--bg-app);
+        background: var(--accent-yellow);
+        border-color: var(--accent-yellow);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        #container { flex-direction: column; }
+        #toolbox { width: 100% !important; height: 34%; border-right: none; border-bottom: 1px solid var(--border); }
+        #blocklyDiv { width: 100%; }
+        .resize-handle { display: none; }
+        #topbar { flex-wrap: wrap; gap: 8px; }
+        #brand .sub { display: none; }
+    }
+
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: var(--bg-panel); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4a4d6a; }
+</style>
+</head>
+<body>
+
+    <div id="topbar">
+        <div id="brand"><span class="dot"></span>PyBlocks<span class="sub">Visual Python Builder</span></div>
+        <div id="topActions">
+            <select id="languageSelect" onchange="changeLanguage()">
+                <option value="en">English</option>
+                <option value="th" selected>ไทย</option>
+                <option value="zh">中文</option>
+                <option value="es">Español</option>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+            </select>
+            <button id="runButton" class="btn btn-primary" onclick="runCode()">▶ <span>รัน</span></button>
+            <button id="copyButton" class="btn btn-secondary" onclick="copyCode()">⧉ <span>คัดลอกโค้ด</span></button>
+            <button id="clearButton" class="btn btn-ghost" onclick="clearWorkspace()">🗑 <span>ล้างบล็อก</span></button>
+        </div>
+    </div>
+
+    <div id="container">
+        <div id="toolbox">
+            <h2 id="toolboxTitle">หมวดหมู่บล็อก</h2>
+            <div id="categoryList"></div>
+            <div class="resize-handle" id="resizeHandle"></div>
+        </div>
+        <div id="blocklyDiv"></div>
+    </div>
+
+    <div id="outputPanel">
+        <div id="outputHeader">
+            <div id="outputTabs">
+                <button class="tabBtn active" data-tab="console" onclick="switchTab('console')">▣ ผลลัพธ์</button>
+                <button class="tabBtn" data-tab="python" onclick="switchTab('python')">🐍 โค้ด Python</button>
+            </div>
+            <button id="collapseButton" class="btn btn-ghost" onclick="toggleOutput()">▾ ย่อ/ขยาย</button>
+        </div>
+        <div id="outputBody">
+            <div id="consoleView" class="outputView active"></div>
+            <pre id="pyView" class="outputView"></pre>
+        </div>
+    </div>
+
+    <div id="helpOverlay" onclick="if(event.target===this) closeHelp()">
+        <div id="helpCard">
+            <div class="helpEyebrow">วิธีใช้บล็อก</div>
+            <h3 id="helpTitle">ชื่อบล็อก</h3>
+            <div class="helpSection">
+                <div class="label">ทำหน้าที่</div>
+                <div class="content" id="helpWhat"></div>
+            </div>
+            <div class="helpSection">
+                <div class="label">ใช้อย่างไร</div>
+                <div class="content" id="helpHow"></div>
+            </div>
+            <div class="helpSection">
+                <div class="label">เทียบเท่าโค้ด Python</div>
+                <pre class="helpCode" id="helpCode"></pre>
+            </div>
+            <div class="closeRow">
+                <button class="btn btn-secondary" onclick="closeHelp()">ปิด</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+/* ==========================================================================
+   PyBlocks — Visual Python Builder
+   app.js — block definitions, toolbox, run/output engine, help system
+   ========================================================================== */
+
+var workspace;
+var isOutputCollapsed = false;
+var currentLang = 'th';
+
+/* --------------------------------------------------------------------
+   1) LANGUAGE STRINGS
+   -------------------------------------------------------------------- */
+const languageData = {
+    en: {
+        appSub: "Visual Python Builder",
+        toolboxTitle: "Block Categories",
+        Run: "Run", CopyCode: "Copy Code", ClearBlocks: "Clear Blocks",
+        ToggleOutput: "Collapse", ExpandOutput: "Expand",
+        tabConsole: "▣ Output", tabPython: "🐍 Python Code",
+        howToUse: "How to use", whatItDoes: "What it does", pyEquivalent: "Python equivalent",
+        close: "Close",
+        Variables: "Variables", Logic: "Logic", Loops: "Loops", Math: "Math",
+        Text: "Text", Lists: "Lists", Dictionaries: "Dictionaries", Functions: "Functions",
+        readyMsg: "Ready. Build blocks and press Run ▶",
+        clearedMsg: "Workspace cleared.",
+        errorPrefix: "Error: ",
+        copiedMsg: "Code copied to clipboard!",
+        copyFailMsg: "Failed to copy code: "
+    },
+    th: {
+        appSub: "ตัวสร้างโค้ดไพธอนแบบภาพ",
+        toolboxTitle: "หมวดหมู่บล็อก",
+        Run: "รัน", CopyCode: "คัดลอกโค้ด", ClearBlocks: "ล้างบล็อก",
+        ToggleOutput: "ย่อ", ExpandOutput: "ขยาย",
+        tabConsole: "▣ ผลลัพธ์", tabPython: "🐍 โค้ด Python",
+        howToUse: "ใช้อย่างไร", whatItDoes: "ทำหน้าที่", pyEquivalent: "เทียบเท่าโค้ด Python",
+        close: "ปิด",
+        Variables: "ตัวแปร", Logic: "ตรรกะ", Loops: "ลูป", Math: "คณิตศาสตร์",
+        Text: "ข้อความ", Lists: "รายการ", Dictionaries: "ดิกชันนารี", Functions: "ฟังก์ชัน",
+        readyMsg: "พร้อมใช้งาน ลากบล็อกมาวางแล้วกด รัน ▶",
+        clearedMsg: "ล้างพื้นที่ทำงานแล้ว",
+        errorPrefix: "ข้อผิดพลาด: ",
+        copiedMsg: "คัดลอกโค้ดแล้ว!",
+        copyFailMsg: "คัดลอกโค้ดไม่สำเร็จ: "
+    },
+    zh: {
+        appSub: "可视化 Python 构建器",
+        toolboxTitle: "积木分类",
+        Run: "运行", CopyCode: "复制代码", ClearBlocks: "清空积木",
+        ToggleOutput: "折叠", ExpandOutput: "展开",
+        tabConsole: "▣ 输出", tabPython: "🐍 Python 代码",
+        howToUse: "如何使用", whatItDoes: "功能说明", pyEquivalent: "对应的 Python 代码",
+        close: "关闭",
+        Variables: "变量", Logic: "逻辑", Loops: "循环", Math: "数学",
+        Text: "文本", Lists: "列表", Dictionaries: "字典", Functions: "函数",
+        readyMsg: "准备就绪。拖拽积木后点击运行 ▶",
+        clearedMsg: "工作区已清空。",
+        errorPrefix: "错误：",
+        copiedMsg: "代码已复制！",
+        copyFailMsg: "复制失败："
+    },
+    es: {
+        appSub: "Constructor Visual de Python",
+        toolboxTitle: "Categorías de Bloques",
+        Run: "Ejecutar", CopyCode: "Copiar Código", ClearBlocks: "Limpiar Bloques",
+        ToggleOutput: "Colapsar", ExpandOutput: "Expandir",
+        tabConsole: "▣ Salida", tabPython: "🐍 Código Python",
+        howToUse: "Cómo usar", whatItDoes: "Qué hace", pyEquivalent: "Equivalente en Python",
+        close: "Cerrar",
+        Variables: "Variables", Logic: "Lógica", Loops: "Bucles", Math: "Matemáticas",
+        Text: "Texto", Lists: "Listas", Dictionaries: "Diccionarios", Functions: "Funciones",
+        readyMsg: "Listo. Arma bloques y presiona Ejecutar ▶",
+        clearedMsg: "Área de trabajo limpiada.",
+        errorPrefix: "Error: ",
+        copiedMsg: "¡Código copiado!",
+        copyFailMsg: "Error al copiar: "
+    },
+    fr: {
+        appSub: "Constructeur Visuel Python",
+        toolboxTitle: "Catégories de Blocs",
+        Run: "Exécuter", CopyCode: "Copier le Code", ClearBlocks: "Effacer les Blocs",
+        ToggleOutput: "Réduire", ExpandOutput: "Agrandir",
+        tabConsole: "▣ Sortie", tabPython: "🐍 Code Python",
+        howToUse: "Comment utiliser", whatItDoes: "Ce que ça fait", pyEquivalent: "Équivalent Python",
+        close: "Fermer",
+        Variables: "Variables", Logic: "Logique", Loops: "Boucles", Math: "Mathématiques",
+        Text: "Texte", Lists: "Listes", Dictionaries: "Dictionnaires", Functions: "Fonctions",
+        readyMsg: "Prêt. Assemblez des blocs et appuyez sur Exécuter ▶",
+        clearedMsg: "Espace de travail effacé.",
+        errorPrefix: "Erreur : ",
+        copiedMsg: "Code copié !",
+        copyFailMsg: "Échec de la copie : "
+    },
+    de: {
+        appSub: "Visueller Python-Baukasten",
+        toolboxTitle: "Blockkategorien",
+        Run: "Ausführen", CopyCode: "Code Kopieren", ClearBlocks: "Blöcke Löschen",
+        ToggleOutput: "Einklappen", ExpandOutput: "Ausklappen",
+        tabConsole: "▣ Ausgabe", tabPython: "🐍 Python-Code",
+        howToUse: "Verwendung", whatItDoes: "Funktion", pyEquivalent: "Python-Äquivalent",
+        close: "Schließen",
+        Variables: "Variablen", Logic: "Logik", Loops: "Schleifen", Math: "Mathematik",
+        Text: "Text", Lists: "Listen", Dictionaries: "Wörterbücher", Functions: "Funktionen",
+        readyMsg: "Bereit. Blöcke zusammenstellen und Ausführen ▶ drücken",
+        clearedMsg: "Arbeitsbereich geleert.",
+        errorPrefix: "Fehler: ",
+        copiedMsg: "Code kopiert!",
+        copyFailMsg: "Kopieren fehlgeschlagen: "
+    }
+};
+
+/* --------------------------------------------------------------------
+   2) HELP CONTENT — what each category / notable block does
+   -------------------------------------------------------------------- */
+const helpData = {
+    en: {
+        Variables: {
+            title: "Variables", what: "Create a named box that stores a value (a number, text, etc.) so you can reuse or change it later.",
+            how: "Drag a 'set variable' block onto the workspace, type a name, then plug a value block (number, text, math...) into the socket.",
+            code: "x = 10\nname = \"Ann\""
+        },
+        Logic: {
+            title: "Logic", what: "Make decisions in your program: run different blocks depending on whether a condition is true or false.",
+            how: "Use 'if / else if / else' to branch, and 'compare' or 'and/or' blocks to build the condition that goes in the hexagonal socket.",
+            code: "if age >= 18:\n    print(\"Adult\")\nelif age >= 13:\n    print(\"Teen\")\nelse:\n    print(\"Child\")"
+        },
+        Loops: {
+            title: "Loops", what: "Repeat a group of blocks multiple times, or while a condition stays true, or over each item in a list.",
+            how: "Pick 'repeat N times' for a fixed count, 'while' for a condition, or 'for each item in list' to iterate a list.",
+            code: "for i in range(5):\n    print(i)\n\nwhile x < 10:\n    x = x + 1"
+        },
+        Math: {
+            title: "Math", what: "Perform arithmetic (add, subtract, multiply, divide, power, modulo) and other numeric operations.",
+            how: "Plug two number blocks into an arithmetic block, or use 'round', 'random number', 'min/max' from the dropdown blocks.",
+            code: "result = (5 + 3) * 2\nremainder = 17 % 5"
+        },
+        Text: {
+            title: "Text (Strings)", what: "Work with text: build strings, print them, join pieces together, measure length, or change case.",
+            how: "Use a 'text' block to type a literal string, 'print' to display it, and 'join' to concatenate several strings.",
+            code: "greeting = \"Hello, \" + name\nprint(greeting.upper())"
+        },
+        Lists: {
+            title: "Lists", what: "Store an ordered collection of values in a single variable — like a row of labeled boxes.",
+            how: "Use 'create list' to build one, 'append' to add items, and 'get item at index' to read a specific position.",
+            code: "fruits = [\"apple\", \"banana\"]\nfruits.append(\"cherry\")\nprint(fruits[0])"
+        },
+        Dictionaries: {
+            title: "Dictionaries", what: "Store key → value pairs, so you can look up a value by a name instead of a numeric position.",
+            how: "Use 'create dictionary' then 'set key to value' to add entries, and 'get value at key' to read one back.",
+            code: "student = {\"name\": \"Ann\", \"age\": 20}\nprint(student[\"name\"])"
+        },
+        Functions: {
+            title: "Functions", what: "Package a group of blocks into a reusable, named procedure — write once, call many times.",
+            how: "Right-click the workspace or use the Functions category to create a function, add parameters, then 'call' it elsewhere.",
+            code: "def greet(name):\n    return \"Hi \" + name\n\nprint(greet(\"Ann\"))"
+        }
+    },
+    th: {
+        Variables: {
+            title: "ตัวแปร (Variables)", what: "สร้าง 'กล่องเก็บค่า' ที่มีชื่อเรียก เพื่อเก็บตัวเลข ข้อความ หรือค่าอื่นๆ ไว้ใช้ซ้ำหรือเปลี่ยนแปลงภายหลัง",
+            how: "ลากบล็อก 'กำหนดตัวแปร' มาวาง ตั้งชื่อตัวแปร แล้วนำบล็อกค่า (ตัวเลข/ข้อความ/คำนวณ) มาเสียบในช่อง",
+            code: "x = 10\nname = \"แอน\""
+        },
+        Logic: {
+            title: "ตรรกะ (Logic)", what: "ให้โปรแกรมตัดสินใจ: เลือกทำงานบล็อกต่างกัน ขึ้นอยู่กับว่าเงื่อนไขเป็นจริงหรือเท็จ",
+            how: "ใช้บล็อก 'ถ้า / ถ้าไม่ / อื่นๆ' เพื่อแยกทาง และใช้บล็อก 'เปรียบเทียบ' หรือ 'และ/หรือ' สร้างเงื่อนไขที่จะเสียบในช่องรูปหกเหลี่ยม",
+            code: "if age >= 18:\n    print(\"ผู้ใหญ่\")\nelif age >= 13:\n    print(\"วัยรุ่น\")\nelse:\n    print(\"เด็ก\")"
+        },
+        Loops: {
+            title: "ลูป (Loops)", what: "ทำซ้ำกลุ่มบล็อกหลายครั้ง ไม่ว่าจะเป็นจำนวนรอบที่กำหนด ทำซ้ำขณะเงื่อนไขยังจริง หรือวนตามรายการ",
+            how: "เลือก 'ทำซ้ำ N ครั้ง' สำหรับจำนวนรอบตายตัว, 'ทำซ้ำขณะที่' สำหรับเงื่อนไข, หรือ 'สำหรับแต่ละรายการใน...' สำหรับวนลิสต์",
+            code: "for i in range(5):\n    print(i)\n\nwhile x < 10:\n    x = x + 1"
+        },
+        Math: {
+            title: "คณิตศาสตร์ (Math)", what: "คำนวณทางคณิตศาสตร์: บวก ลบ คูณ หาร ยกกำลัง หารเอาเศษ และฟังก์ชันตัวเลขอื่นๆ",
+            how: "เสียบบล็อกตัวเลขสองอันเข้าบล็อกคำนวณ หรือใช้บล็อก 'ปัดเศษ', 'สุ่มตัวเลข', 'ค่าสูงสุด/ต่ำสุด' จากดรอปดาวน์",
+            code: "result = (5 + 3) * 2\nremainder = 17 % 5"
+        },
+        Text: {
+            title: "ข้อความ (Text/Strings)", what: "จัดการข้อความ: สร้างสตริง แสดงผล เชื่อมข้อความเข้าด้วยกัน วัดความยาว หรือแปลงตัวพิมพ์ใหญ่/เล็ก",
+            how: "ใช้บล็อก 'ข้อความ' พิมพ์ข้อความคงที่ ใช้ 'พิมพ์ผลลัพธ์' เพื่อแสดงผล และ 'เชื่อมข้อความ' เพื่อรวมหลายข้อความ",
+            code: "greeting = \"สวัสดี \" + name\nprint(greeting.upper())"
+        },
+        Lists: {
+            title: "รายการ (Lists)", what: "เก็บชุดค่าที่เรียงลำดับไว้ในตัวแปรเดียว เหมือนแถวของกล่องที่มีหมายเลขกำกับ",
+            how: "ใช้ 'สร้างรายการ' เพื่อสร้างลิสต์ ใช้ 'เพิ่มรายการ' เพื่อเพิ่มสมาชิก และ 'ดึงค่าตามตำแหน่ง' เพื่ออ่านค่า",
+            code: "fruits = [\"แอปเปิ้ล\", \"กล้วย\"]\nfruits.append(\"เชอร์รี่\")\nprint(fruits[0])"
+        },
+        Dictionaries: {
+            title: "ดิกชันนารี (Dictionaries)", what: "เก็บคู่ 'กุญแจ → ค่า' ทำให้ค้นหาค่าด้วยชื่อแทนตำแหน่งตัวเลขได้",
+            how: "ใช้ 'สร้างดิกชันนารี' แล้วใช้ 'กำหนดค่าให้กุญแจ' เพื่อเพิ่มข้อมูล และ 'ดึงค่าจากกุญแจ' เพื่ออ่านค่ากลับมา",
+            code: "student = {\"name\": \"แอน\", \"age\": 20}\nprint(student[\"name\"])"
+        },
+        Functions: {
+            title: "ฟังก์ชัน (Functions)", what: "รวมกลุ่มบล็อกไว้เป็นชุดคำสั่งที่ตั้งชื่อและเรียกใช้ซ้ำได้ เขียนครั้งเดียวใช้ได้หลายที่",
+            how: "คลิกขวาบนพื้นที่ทำงานหรือใช้หมวด 'ฟังก์ชัน' เพื่อสร้างฟังก์ชันใหม่ ใส่พารามิเตอร์ แล้ว 'เรียกใช้' ที่จุดอื่นในโปรแกรม",
+            code: "def greet(name):\n    return \"สวัสดี \" + name\n\nprint(greet(\"แอน\"))"
+        }
+    }
+};
+// Fallback: if a language isn't fully translated in helpData, use English.
+function getHelp(lang, key) {
+    return (helpData[lang] && helpData[lang][key]) || helpData.en[key];
+}
+
+/* --------------------------------------------------------------------
+   3) CUSTOM BLOCK DEFINITIONS (beyond Blockly's stock blocks)
+   -------------------------------------------------------------------- */
+function defineCustomBlocks() {
+    Blockly.defineBlocksWithJsonArray([
+        // ---- Variables ----
+        {
+            "type": "variables_set_int",
+            "message0": "กำหนด %1 เป็นจำนวนเต็ม %2",
+            "args0": [
+                { "type": "field_input", "name": "VARNAME", "text": "x" },
+                { "type": "input_value", "name": "VALUE", "check": "Number" }
+            ],
+            "previousStatement": null, "nextStatement": null,
+            "colour": "#A65C81", "tooltip": "ตั้งค่าตัวแปรให้เป็นจำนวนเต็ม", "helpUrl": ""
+        },
+        {
+            "type": "variables_set_str",
+            "message0": "กำหนด %1 เป็นข้อความ %2",
+            "args0": [
+                { "type": "field_input", "name": "VARNAME", "text": "name" },
+                { "type": "field_input", "name": "VALUE", "text": "" }
+            ],
+            "previousStatement": null, "nextStatement": null,
+            "colour": "#A65C81", "tooltip": "ตั้งค่าตัวแปรให้เป็นข้อความ", "helpUrl": ""
+        },
+        {
+            "type": "variables_get_custom",
+            "message0": "%1",
+            "args0": [{ "type": "field_input", "name": "VARNAME", "text": "x" }],
+            "output": null, "colour": "#A65C81",
+            "tooltip": "อ่านค่าจากตัวแปร", "helpUrl": ""
+        },
+        {
+            "type": "variables_change",
+            "message0": "เพิ่มค่า %1 ให้ตัวแปร %2",
+            "args0": [
+                { "type": "field_input", "name": "VARNAME", "text": "x" },
+                { "type": "input_value", "name": "DELTA", "check": "Number" }
+            ],
+            "previousStatement": null, "nextStatement": null,
+            "colour": "#A65C81", "tooltip": "บวกเพิ่มค่าให้กับตัวแปรตัวเลข (x = x + delta)", "helpUrl": ""
+        },
+
+        // ---- Text / string extras ----
+        {
+            "type": "text_print_custom",
+            "message0": "พิมพ์ผลลัพธ์ %1",
+            "args0": [{ "type": "input_value", "name": "TEXT" }],
+            "previousStatement": null, "nextStatement": null,
+            "colour": "#5CA6A6", "tooltip": "แสดงข้อความ/ค่าออกทางหน้าจอผลลัพธ์ (print)", "helpUrl": ""
+        },
+        {
+            "type": "text_input_custom",
+            "message0": "รับข้อความจากผู้ใช้ พร้อมข้อความถาม %1",
+            "args0": [{ "type": "input_value", "name": "PROMPT" }],
+            "output": "String", "colour": "#5CA6A6",
+            "tooltip": "รับค่าข้อความจากผู้ใช้ (input) — ในตัวอย่างนี้จะใช้ prompt() ของเบราว์เซอร์", "helpUrl": ""
+        },
+        {
+            "type": "text_upper",
+            "message0": "แปลง %1 เป็นตัวพิมพ์ใหญ่",
+            "args0": [{ "type": "input_value", "name": "TEXT", "check": "String" }],
+            "output": "String", "colour": "#5CA6A6",
+            "tooltip": "แปลงข้อความเป็นตัวพิมพ์ใหญ่ทั้งหมด (.upper())", "helpUrl": ""
+        },
+        {
+            "type": "text_lower",
+            "message0": "แปลง %1 เป็นตัวพิมพ์เล็ก",
+            "args0": [{ "type": "input_value", "name": "TEXT", "check": "String" }],
+            "output": "String", "colour": "#5CA6A6",
+            "tooltip": "แปลงข้อความเป็นตัวพิมพ์เล็กทั้งหมด (.lower())", "helpUrl": ""
+        },
+        {
+            "type": "text_format",
+            "message0": "แปลง %1 เป็นข้อความจำนวนทศนิยม",
+            "args0": [{ "type": "input_value", "name": "NUM" }],
+            "output": "String", "colour": "#5CA6A6",
+            "tooltip": "แปลงตัวเลขเป็นข้อความ (str())", "helpUrl": ""
+        },
+
+        // ---- Dictionaries ----
+        {
+            "type": "dict_create_empty",
+            "message0": "สร้างดิกชันนารีว่าง",
+            "output": "Dictionary", "colour": "#4B7BA6",
+            "tooltip": "สร้างดิกชันนารีเปล่า ({})", "helpUrl": ""
+        },
+        {
+            "type": "dict_set_key",
+            "message0": "กำหนดใน %1 คีย์ %2 เป็นค่า %3",
+            "args0": [
+                { "type": "input_value", "name": "DICT", "check": "Dictionary" },
+                { "type": "input_value", "name": "KEY" },
+                { "type": "input_value", "name": "VALUE" }
+            ],
+            "previousStatement": null, "nextStatement": null,
+            "colour": "#4B7BA6", "tooltip": "เพิ่มหรือแก้ไขคู่ กุญแจ:ค่า ในดิกชันนารี", "helpUrl": ""
+        },
+        {
+            "type": "dict_get_key",
+            "message0": "ดึงค่าจาก %1 ด้วยคีย์ %2",
+            "args0": [
+                { "type": "input_value", "name": "DICT", "check": "Dictionary" },
+                { "type": "input_value", "name": "KEY" }
+            ],
+            "output": null, "colour": "#4B7BA6",
+            "tooltip": "อ่านค่าจากดิกชันนารีโดยใช้กุญแจ (dict[key])", "helpUrl": ""
+        },
+
+        // ---- Math extras ----
+        {
+            "type": "math_random_range",
+            "message0": "สุ่มจำนวนเต็มระหว่าง %1 ถึง %2",
+            "args0": [
+                { "type": "input_value", "name": "FROM", "check": "Number" },
+                { "type": "input_value", "name": "TO", "check": "Number" }
+            ],
+            "output": "Number", "colour": "#5C68A6",
+            "tooltip": "สุ่มเลขจำนวนเต็มในช่วงที่กำหนด (random.randint)", "helpUrl": ""
+        }
+    ]);
+}
+
+/* --------------------------------------------------------------------
+   4) PYTHON + JAVASCRIPT GENERATORS for the custom blocks
+   -------------------------------------------------------------------- */
+function defineGenerators() {
+    // --- variables_set_int ---
+    Blockly.Python['variables_set_int'] = function (block) {
+        var varName = block.getFieldValue('VARNAME');
+        var value = Blockly.Python.valueToCode(block, 'VALUE', Blockly.Python.ORDER_NONE) || '0';
+        return varName + ' = ' + value + '\n';
+    };
+    Blockly.JavaScript['variables_set_int'] = function (block) {
+        var varName = block.getFieldValue('VARNAME');
+        var value = Blockly.JavaScript.valueToCode(block, 'VALUE', Blockly.JavaScript.ORDER_NONE) || '0';
+        return '__vars["' + varName + '"] = ' + value + ';\n';
+    };
+
+    // --- variables_set_str ---
+    Blockly.Python['variables_set_str'] = function (block) {
+        var varName = block.getFieldValue('VARNAME');
+        var value = block.getFieldValue('VALUE');
+        return varName + ' = ' + JSON.stringify(value) + '\n';
+    };
+    Blockly.JavaScript['variables_set_str'] = function (block) {
+        var varName = block.getFieldValue('VARNAME');
+        var value = block.getFieldValue('VALUE');
+        return '__vars["' + varName + '"] = ' + JSON.stringify(value) + ';\n';
+    };
+
+    // --- variables_get_custom ---
+    Blockly.Python['variables_get_custom'] = function (block) {
+        var varName = block.getFieldValue('VARNAME');
+        return [varName, Blockly.Python.ORDER_ATOMIC];
+    };
+    Blockly.JavaScript['variables_get_custom'] = function (block) {
+        var varName = block.getFieldValue('VARNAME');
+        return ['__vars["' + varName + '"]', Blockly.JavaScript.ORDER_ATOMIC];
+    };
+
+    // --- variables_change ---
+    Blockly.Python['variables_change'] = function (block) {
+        var varName = block.getFieldValue('VARNAME');
+        var delta = Blockly.Python.valueToCode(block, 'DELTA', Blockly.Python.ORDER_NONE) || '0';
+        return varName + ' = ' + varName + ' + ' + delta + '\n';
+    };
+    Blockly.JavaScript['variables_change'] = function (block) {
+        var varName = block.getFieldValue('VARNAME');
+        var delta = Blockly.JavaScript.valueToCode(block, 'DELTA', Blockly.JavaScript.ORDER_NONE) || '0';
+        return '__vars["' + varName + '"] = (__vars["' + varName + '"]||0) + ' + delta + ';\n';
+    };
+
+    // --- text_print_custom ---
+    Blockly.Python['text_print_custom'] = function (block) {
+        var text = Blockly.Python.valueToCode(block, 'TEXT', Blockly.Python.ORDER_NONE) || '""';
+        return 'print(' + text + ')\n';
+    };
+    Blockly.JavaScript['text_print_custom'] = function (block) {
+        var text = Blockly.JavaScript.valueToCode(block, 'TEXT', Blockly.JavaScript.ORDER_NONE) || '""';
+        return '__print(' + text + ');\n';
+    };
+
+    // --- text_input_custom ---
+    Blockly.Python['text_input_custom'] = function (block) {
+        var prompt = Blockly.Python.valueToCode(block, 'PROMPT', Blockly.Python.ORDER_NONE) || '""';
+        var code = 'input(' + prompt + ')';
+        return [code, Blockly.Python.ORDER_FUNCTION_CALL];
+    };
+    Blockly.JavaScript['text_input_custom'] = function (block) {
+        var prompt = Blockly.JavaScript.valueToCode(block, 'PROMPT', Blockly.JavaScript.ORDER_NONE) || '""';
+        var code = '__input(' + prompt + ')';
+        return [code, Blockly.JavaScript.ORDER_FUNCTION_CALL];
+    };
+
+    // --- text_upper / text_lower ---
+    Blockly.Python['text_upper'] = function (block) {
+        var text = Blockly.Python.valueToCode(block, 'TEXT', Blockly.Python.ORDER_MEMBER) || '""';
+        return [text + '.upper()', Blockly.Python.ORDER_FUNCTION_CALL];
+    };
+    Blockly.JavaScript['text_upper'] = function (block) {
+        var text = Blockly.JavaScript.valueToCode(block, 'TEXT', Blockly.JavaScript.ORDER_MEMBER) || '""';
+        return ['String(' + text + ').toUpperCase()', Blockly.JavaScript.ORDER_FUNCTION_CALL];
+    };
+    Blockly.Python['text_lower'] = function (block) {
+        var text = Blockly.Python.valueToCode(block, 'TEXT', Blockly.Python.ORDER_MEMBER) || '""';
+        return [text + '.lower()', Blockly.Python.ORDER_FUNCTION_CALL];
+    };
+    Blockly.JavaScript['text_lower'] = function (block) {
+        var text = Blockly.JavaScript.valueToCode(block, 'TEXT', Blockly.JavaScript.ORDER_MEMBER) || '""';
+        return ['String(' + text + ').toLowerCase()', Blockly.JavaScript.ORDER_FUNCTION_CALL];
+    };
+
+    // --- text_format (str()) ---
+    Blockly.Python['text_format'] = function (block) {
+        var num = Blockly.Python.valueToCode(block, 'NUM', Blockly.Python.ORDER_NONE) || '0';
+        return ['str(' + num + ')', Blockly.Python.ORDER_FUNCTION_CALL];
+    };
+    Blockly.JavaScript['text_format'] = function (block) {
+        var num = Blockly.JavaScript.valueToCode(block, 'NUM', Blockly.JavaScript.ORDER_NONE) || '0';
+        return ['String(' + num + ')', Blockly.JavaScript.ORDER_FUNCTION_CALL];
+    };
+
+    // --- dict_create_empty ---
+    Blockly.Python['dict_create_empty'] = function () {
+        return ['{}', Blockly.Python.ORDER_ATOMIC];
+    };
+    Blockly.JavaScript['dict_create_empty'] = function () {
+        return ['{}', Blockly.JavaScript.ORDER_ATOMIC];
+    };
+
+    // --- dict_set_key ---
+    Blockly.Python['dict_set_key'] = function (block) {
+        var dict = Blockly.Python.valueToCode(block, 'DICT', Blockly.Python.ORDER_MEMBER) || '{}';
+        var key = Blockly.Python.valueToCode(block, 'KEY', Blockly.Python.ORDER_NONE) || '""';
+        var value = Blockly.Python.valueToCode(block, 'VALUE', Blockly.Python.ORDER_NONE) || 'None';
+        return dict + '[' + key + '] = ' + value + '\n';
+    };
+    Blockly.JavaScript['dict_set_key'] = function (block) {
+        var dict = Blockly.JavaScript.valueToCode(block, 'DICT', Blockly.JavaScript.ORDER_MEMBER) || '{}';
+        var key = Blockly.JavaScript.valueToCode(block, 'KEY', Blockly.JavaScript.ORDER_NONE) || '""';
+        var value = Blockly.JavaScript.valueToCode(block, 'VALUE', Blockly.JavaScript.ORDER_NONE) || 'null';
+        return dict + '[' + key + '] = ' + value + ';\n';
+    };
+
+    // --- dict_get_key ---
+    Blockly.Python['dict_get_key'] = function (block) {
+        var dict = Blockly.Python.valueToCode(block, 'DICT', Blockly.Python.ORDER_MEMBER) || '{}';
+        var key = Blockly.Python.valueToCode(block, 'KEY', Blockly.Python.ORDER_NONE) || '""';
+        return [dict + '[' + key + ']', Blockly.Python.ORDER_MEMBER];
+    };
+    Blockly.JavaScript['dict_get_key'] = function (block) {
+        var dict = Blockly.JavaScript.valueToCode(block, 'DICT', Blockly.JavaScript.ORDER_MEMBER) || '{}';
+        var key = Blockly.JavaScript.valueToCode(block, 'KEY', Blockly.JavaScript.ORDER_NONE) || '""';
+        return [dict + '[' + key + ']', Blockly.JavaScript.ORDER_MEMBER];
+    };
+
+    // --- math_random_range ---
+    Blockly.Python['math_random_range'] = function (block) {
+        Blockly.Python.definitions_['import_random'] = 'import random';
+        var from_ = Blockly.Python.valueToCode(block, 'FROM', Blockly.Python.ORDER_NONE) || '0';
+        var to_ = Blockly.Python.valueToCode(block, 'TO', Blockly.Python.ORDER_NONE) || '10';
+        return ['random.randint(' + from_ + ', ' + to_ + ')', Blockly.Python.ORDER_FUNCTION_CALL];
+    };
+    Blockly.JavaScript['math_random_range'] = function (block) {
+        var from_ = Blockly.JavaScript.valueToCode(block, 'FROM', Blockly.JavaScript.ORDER_NONE) || '0';
+        var to_ = Blockly.JavaScript.valueToCode(block, 'TO', Blockly.JavaScript.ORDER_NONE) || '10';
+        var code = '(Math.floor(Math.random() * ((' + to_ + ') - (' + from_ + ') + 1)) + (' + from_ + '))';
+        return [code, Blockly.JavaScript.ORDER_FUNCTION_CALL];
+    };
+}
+
+/* --------------------------------------------------------------------
+   5) TOOLBOX XML — organized into clear categories with help dots
+   -------------------------------------------------------------------- */
+function generateToolboxXml(lang) {
+    const L = languageData[lang];
+    return `
+        <xml id="toolbox-categories" style="display: none">
+            <category name="${L.Variables}" colour="#A65C81">
+                <block type="variables_set_int"></block>
+                <block type="variables_set_str"></block>
+                <block type="variables_get_custom"></block>
+                <block type="variables_change">
+                    <value name="DELTA"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                </block>
+            </category>
+            <category name="${L.Logic}" colour="#5C81A6">
+                <block type="controls_if"></block>
+                <block type="logic_compare"></block>
+                <block type="logic_operation"></block>
+                <block type="logic_negate"></block>
+                <block type="logic_boolean"></block>
+                <block type="logic_null"></block>
+            </category>
+            <category name="${L.Loops}" colour="#5CA65C">
+                <block type="controls_repeat_ext">
+                    <value name="TIMES"><shadow type="math_number"><field name="NUM">10</field></shadow></value>
+                </block>
+                <block type="controls_whileUntil"></block>
+                <block type="controls_for">
+                    <value name="FROM"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                    <value name="TO"><shadow type="math_number"><field name="NUM">10</field></shadow></value>
+                    <value name="BY"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                </block>
+                <block type="controls_forEach"></block>
+                <block type="controls_flow_statements"></block>
+            </category>
+            <category name="${L.Math}" colour="#5C68A6">
+                <block type="math_number"></block>
+                <block type="math_arithmetic"></block>
+                <block type="math_single"></block>
+                <block type="math_round"></block>
+                <block type="math_modulo"></block>
+                <block type="math_random_range">
+                    <value name="FROM"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                    <value name="TO"><shadow type="math_number"><field name="NUM">10</field></shadow></value>
+                </block>
+            </category>
+            <category name="${L.Text}" colour="#5CA6A6">
+                <block type="text"></block>
+                <block type="text_print_custom"></block>
+                <block type="text_input_custom">
+                    <value name="PROMPT"><shadow type="text"><field name="TEXT">กรอกข้อมูล:</field></shadow></value>
+                </block>
+                <block type="text_join"></block>
+                <block type="text_length"></block>
+                <block type="text_upper"></block>
+                <block type="text_lower"></block>
+                <block type="text_format"></block>
+            </category>
+            <category name="${L.Lists}" colour="#745CA6">
+                <block type="lists_create_with"></block>
+                <block type="lists_repeat">
+                    <value name="NUM"><shadow type="math_number"><field name="NUM">5</field></shadow></value>
+                </block>
+                <block type="lists_length"></block>
+                <block type="lists_isEmpty"></block>
+                <block type="lists_indexOf"></block>
+                <block type="lists_getIndex"></block>
+                <block type="lists_setIndex"></block>
+            </category>
+            <category name="${L.Dictionaries}" colour="#4B7BA6">
+                <block type="dict_create_empty"></block>
+                <block type="dict_set_key">
+                    <value name="KEY"><shadow type="text"><field name="TEXT">key</field></shadow></value>
+                </block>
+                <block type="dict_get_key">
+                    <value name="KEY"><shadow type="text"><field name="TEXT">key</field></shadow></value>
+                </block>
+            </category>
+            <category name="${L.Functions}" custom="PROCEDURE" colour="#995CA6"></category>
+        </xml>
+    `;
+}
+
+/* --------------------------------------------------------------------
+   6) BLOCKLY INIT
+   -------------------------------------------------------------------- */
+function initializeBlockly() {
+    defineCustomBlocks();
+    defineGenerators();
+
+    workspace = Blockly.inject('blocklyDiv', {
+        toolbox: generateToolboxXml(currentLang),
+        grid: { spacing: 22, length: 3, colour: '#2a2c3e', snap: true },
+        trashcan: true,
+        zoom: { controls: true, wheel: true, startScale: 1.0 },
+        theme: buildDarkTheme()
+    });
+
+    // Seed with a friendly starter block so the canvas isn't empty/confusing
+    seedStarterBlocks();
+}
+
+function buildDarkTheme() {
+    if (!Blockly.Theme) return undefined;
+    try {
+        return Blockly.Theme.defineTheme('pyblocksDark', {
+            base: Blockly.Themes.Classic,
+            componentStyles: {
+                workspaceBackgroundColour: '#16171f',
+                toolboxBackgroundColour: '#262838',
+                toolboxForegroundColour: '#e8e9f0',
+                flyoutBackgroundColour: '#1e1f2e',
+                flyoutForegroundColour: '#e8e9f0',
+                flyoutOpacity: 1,
+                scrollbarColour: '#3a3d54',
+                insertionMarkerColour: '#7ee787',
+                insertionMarkerOpacity: 0.4,
+                cursorColour: '#7ee787'
+            }
+        });
+    } catch (e) {
+        return undefined;
+    }
+}
+
+function seedStarterBlocks() {
+    try {
+        var xmlText = `
+            <xml xmlns="https://developers.google.com/blockly/xml">
+                <block type="text_print_custom" x="40" y="40">
+                    <value name="TEXT">
+                        <shadow type="text"><field name="TEXT">สวัสดี PyBlocks!</field></shadow>
+                    </value>
+                </block>
+            </xml>`;
+        var xmlDom = Blockly.Xml.textToDom(xmlText);
+        Blockly.Xml.domToWorkspace(xmlDom, workspace);
+    } catch (e) {
+        console.warn('Seed block failed', e);
+    }
+}
+
+/* --------------------------------------------------------------------
+   7) LANGUAGE SWITCHING
+   -------------------------------------------------------------------- */
+function changeLanguage() {
+    currentLang = document.getElementById('languageSelect').value;
+    const L = languageData[currentLang];
+
+    document.querySelector('#brand .sub').textContent = L.appSub;
+    document.getElementById('toolboxTitle').textContent = L.toolboxTitle;
+    document.querySelector('#runButton span').textContent = L.Run;
+    document.querySelector('#copyButton span').textContent = L.CopyCode;
+    document.querySelector('#clearButton span').textContent = L.ClearBlocks;
+    document.querySelector('[data-tab="console"]').textContent = L.tabConsole;
+    document.querySelector('[data-tab="python"]').textContent = L.tabPython;
+    document.getElementById('collapseButton').textContent =
+        (isOutputCollapsed ? '▸ ' + L.ExpandOutput : '▾ ' + L.ToggleOutput);
+
+    if (workspace) {
+        workspace.updateToolbox(generateToolboxXml(currentLang));
+    }
+
+    if (!document.getElementById('consoleView').dataset.used) {
+        printInfoLine(L.readyMsg);
+    }
+}
+
+/* --------------------------------------------------------------------
+   8) RUN / OUTPUT ENGINE
+   -------------------------------------------------------------------- */
+function clearConsole() {
+    var el = document.getElementById('consoleView');
+    el.innerHTML = '';
+    delete el.dataset.used;
+}
+
+function printInfoLine(msg) {
+    var el = document.getElementById('consoleView');
+    var div = document.createElement('div');
+    div.className = 'line info';
+    div.textContent = msg;
+    el.appendChild(div);
+}
+
+function printOutputLine(msg, isError) {
+    var el = document.getElementById('consoleView');
+    var div = document.createElement('div');
+    div.className = 'line' + (isError ? ' err' : '');
+    div.textContent = msg;
+    el.appendChild(div);
+    el.dataset.used = '1';
+    el.scrollTop = el.scrollHeight;
+}
+
+function stringifyForOutput(val) {
+    if (val === undefined) return 'None';
+    if (val === null) return 'None';
+    if (typeof val === 'boolean') return val ? 'True' : 'False';
+    if (Array.isArray(val)) return '[' + val.map(stringifyForOutput).join(', ') + ']';
+    if (typeof val === 'object') {
+        try { return JSON.stringify(val); } catch (e) { return String(val); }
+    }
+    return String(val);
+}
+
+function runCode() {
+    clearConsole();
+    const L = languageData[currentLang];
+
+    var jsCode, pyCode;
+    try {
+        jsCode = Blockly.JavaScript.workspaceToCode(workspace);
+        pyCode = Blockly.Python.workspaceToCode(workspace);
+    } catch (genErr) {
+        printOutputLine(L.errorPrefix + genErr.message, true);
+        return;
+    }
+
+    document.getElementById('pyView').textContent = pyCode || '# ' + L.readyMsg;
+
+    // Sandbox: provide __print, __input, __vars for generated JS to call.
+    var __vars = {};
+    function __print() {
+        var parts = Array.prototype.slice.call(arguments).map(stringifyForOutput);
+        printOutputLine(parts.join(' '));
+    }
+    function __input(promptText) {
+        var res = window.prompt(promptText !== undefined ? String(promptText) : '');
+        return res === null ? '' : res;
+    }
+
+    try {
+        // eslint-disable-next-line no-new-func
+        var runner = new Function('__print', '__input', '__vars', jsCode);
+        runner(__print, __input, __vars);
+        if (!document.getElementById('consoleView').dataset.used) {
+            printInfoLine(L.readyMsg);
+        }
+    } catch (e) {
+        printOutputLine(L.errorPrefix + e.message, true);
+    }
+}
+
+/* --------------------------------------------------------------------
+   9) COPY / CLEAR / TABS / COLLAPSE
+   -------------------------------------------------------------------- */
+function copyCode() {
+    const L = languageData[currentLang];
+    var code = Blockly.Python.workspaceToCode(workspace);
+    navigator.clipboard.writeText(code).then(function () {
+        printInfoLine(L.copiedMsg);
+    }).catch(function (err) {
+        printOutputLine(L.copyFailMsg + err, true);
+    });
+}
+
+function clearWorkspace() {
+    const L = languageData[currentLang];
+    if (workspace) {
+        workspace.clear();
+    }
+    clearConsole();
+    printInfoLine(L.clearedMsg);
+    document.getElementById('pyView').textContent = '';
+}
+
+function switchTab(tab) {
+    document.querySelectorAll('.tabBtn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.getElementById('consoleView').classList.toggle('active', tab === 'console');
+    document.getElementById('pyView').classList.toggle('active', tab === 'python');
+}
+
+function toggleOutput() {
+    const L = languageData[currentLang];
+    const panel = document.getElementById('outputPanel');
+    isOutputCollapsed = !isOutputCollapsed;
+    panel.classList.toggle('collapsed', isOutputCollapsed);
+    document.getElementById('collapseButton').textContent =
+        (isOutputCollapsed ? '▸ ' + L.ExpandOutput : '▾ ' + L.ToggleOutput);
+}
+
+/* --------------------------------------------------------------------
+   10) TOOLBOX RESIZE
+   -------------------------------------------------------------------- */
+function resizeToolboxWidth(event) {
+    const min = 180, max = 480;
+    let w = event.clientX;
+    w = Math.max(min, Math.min(max, w));
+    document.getElementById('toolbox').style.width = w + 'px';
+    if (workspace) Blockly.svgResize(workspace);
+}
+function stopResizingToolbox() {
+    document.removeEventListener('mousemove', resizeToolboxWidth);
+    document.removeEventListener('mouseup', stopResizingToolbox);
+}
+function initResizeHandle() {
+    document.getElementById('resizeHandle').addEventListener('mousedown', function (event) {
+        event.preventDefault();
+        document.addEventListener('mousemove', resizeToolboxWidth);
+        document.addEventListener('mouseup', stopResizingToolbox);
+    });
+}
+
+/* --------------------------------------------------------------------
+   11) HELP MODAL — injects a small "?" dot next to each category label
+   -------------------------------------------------------------------- */
+const categoryHelpKeyOrder = ["Variables", "Logic", "Loops", "Math", "Text", "Lists", "Dictionaries", "Functions"];
+
+function openHelp(key) {
+    const L = languageData[currentLang];
+    const h = getHelp(currentLang, key);
+    if (!h) return;
+    document.getElementById('helpTitle').textContent = h.title;
+    document.getElementById('helpWhat').textContent = h.what;
+    document.getElementById('helpHow').textContent = h.how;
+    document.getElementById('helpCode').textContent = h.code;
+    document.querySelector('#helpCard .helpSection:nth-of-type(1) .label').textContent = L.whatItDoes;
+    document.querySelector('#helpCard .helpSection:nth-of-type(2) .label').textContent = L.howToUse;
+    document.querySelector('#helpCard .helpSection:nth-of-type(3) .label').textContent = L.pyEquivalent;
+    document.querySelector('#helpCard .closeRow .btn').textContent = L.close;
+    document.getElementById('helpOverlay').classList.add('open');
+}
+function closeHelp() {
+    document.getElementById('helpOverlay').classList.remove('open');
+}
+
+// Attach help dots to the rendered toolbox category rows.
+// Blockly renders <div class="blocklyTreeRow"> items in DOM order matching our category list.
+function attachHelpDots() {
+    const rows = document.querySelectorAll('#toolbox .blocklyTreeRow');
+    rows.forEach((row, idx) => {
+        if (row.querySelector('.helpDot')) return; // already attached
+        const key = categoryHelpKeyOrder[idx];
+        if (!key) return;
+        row.classList.add('catRow');
+        const dot = document.createElement('span');
+        dot.className = 'helpDot';
+        dot.textContent = '?';
+        dot.title = 'ℹ';
+        dot.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openHelp(key);
+        });
+        row.appendChild(dot);
+    });
+}
+
+// Observe toolbox for re-renders (language change / resize) to re-attach dots
+function watchToolboxForHelpDots() {
+    const target = document.getElementById('categoryList');
+    const observer = new MutationObserver(() => attachHelpDots());
+    observer.observe(target, { childList: true, subtree: true });
+    // Initial attempt + a couple retries since Blockly renders async
+    setTimeout(attachHelpDots, 300);
+    setTimeout(attachHelpDots, 800);
+    setTimeout(attachHelpDots, 1500);
+}
+
+/* --------------------------------------------------------------------
+   12) BOOTSTRAP
+   -------------------------------------------------------------------- */
+window.addEventListener('resize', () => { if (workspace) Blockly.svgResize(workspace); });
+
+window.addEventListener('load', () => {
+    initializeBlockly();
+    initResizeHandle();
+    changeLanguage();
+    watchToolboxForHelpDots();
+});
+
+</script>
+</body>
+</html>
